@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 app = FastAPI(title="powere.ch API", version="0.1.0")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://www.powere.ch", "http://localhost:4321"],
+    allow_origins=["https://www.powere.ch", "https://powere.ch", "http://localhost:4321"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
