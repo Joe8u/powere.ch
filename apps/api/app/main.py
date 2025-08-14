@@ -7,6 +7,7 @@ import os, uuid, logging
 from openai import OpenAI
 from qdrant_client import QdrantClient
 from qdrant_client.http import models as qmodels
+import uuid
 
 # ---- Config ----
 BACKEND = os.getenv("EMBED_BACKEND", "openai").lower()  # "openai" | "fastembed"
@@ -223,3 +224,14 @@ def chat(req: ChatRequest):
         raise HTTPException(status_code=502, detail=f"chat_failed: {e}")
 
     return {"answer": answer, "citations": citations, "used_model": CHAT_MODEL}
+
+def stable_uuid_for(d: IngestDoc) -> str:
+    basis = f"{d.url or ''}|{d.title or ''}|{d.content}"
+    return str(uuid.uuid5(uuid.NAMESPACE_URL, basis))
+
+# ...
+points = []
+for d, vec in zip(docs, vectors):
+    pid = normalize_point_id(d.id) if d.id else stable_uuid_for(d)
+    payload = {"title": d.title, "url": d.url, "content": d.content}
+    points.append(qmodels.PointStruct(id=pid, vector=vec, payload=payload))
