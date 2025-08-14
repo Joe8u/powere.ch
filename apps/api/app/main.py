@@ -1,8 +1,8 @@
-from fastapi import FastAPI, Body
+from fastapi import FastAPI, Body, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
-import os, uuid
+import os, uuid, logging
 
 from openai import OpenAI
 from qdrant_client import QdrantClient
@@ -17,21 +17,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ---- Konfiguration aus ENV ----
+# ---- ENV
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
+# Use default OpenAI endpoint; only set BASE_URL if you truly use a compatible provider.
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
 QDRANT_URL = os.getenv("QDRANT_URL", "http://qdrant:6333")
 QDRANT_COLLECTION = os.getenv("QDRANT_COLLECTION", "powere_docs")
+EMBED_DIM = 1536  # text-embedding-3-small / large
 
-# Dimension 1536 passt für text-embedding-3-small/large (und ada-002)
-EMBED_DIM = 1536
-
-# ---- Clients initialisieren ----
-openai_client = OpenAI(api_key=OPENAI_API_KEY, base_url=OPENAI_BASE_URL)
+# ---- Clients
+if not OPENAI_API_KEY:
+    # Fail early with a clear message
+    raise RuntimeError("OPENAI_API_KEY is not set")
+openai_client = OpenAI(api_key=OPENAI_API_KEY)
 qdrant = QdrantClient(url=QDRANT_URL)
 
-# Collection sicherstellen
 def ensure_collection():
     try:
         qdrant.get_collection(QDRANT_COLLECTION)
@@ -59,18 +59,25 @@ def ping():
 def ingest(docs: List[IngestDoc] = Body(..., min_items=1)):
     ensure_collection()
 
-    # Embeddings holen (batch)
     inputs = [d.content for d in docs]
-    emb = openai_client.embeddings.create(model=EMBEDDING_MODEL, input=inputs)
+    try:
+        emb = openai_client.embeddings.create(model=EMBEDDING_MODEL, input=inputs)
+    except Exception as e:
+        # Surface the real cause with a proper status code
+        # Typical: 401 Unauthorized (bad key) or 429 (quota) – but we use 502 as generic upstream failure.
+        logging.exception("embedding_failed")
+        raise HTTPException(status_code=502, detail=f"embedding_failed: {e}")
 
-    # Punkte bauen
     points = []
-    for d, e in zip(docs, emb.data):
-        pid = d.id or str(uuid.uuid4())
-        payload = {"title": d.title, "url": d.url, "content": d.content}
-        points.append(qmodels.PointStruct(id=pid, vector=e.embedding, payload=payload))
+    try:
+        for d, e in zip(docs, emb.data):
+            pid = d.id or str(uuid.uuid4())
+            payload = {"title": d.title, "url": d.url, "content": d.content}
+            points.append(qmodels.PointStruct(id=pid, vector=e.embedding, payload=payload))
 
-    # Upsert nach Qdrant
-    qdrant.upsert(collection_name=QDRANT_COLLECTION, points=points, wait=True)
+        qdrant.upsert(collection_name=QDRANT_COLLECTION, points=points, wait=True)
+    except Exception as e:
+        logging.exception("qdrant_upsert_failed")
+        raise HTTPException(status_code=500, detail=f"qdrant_upsert_failed: {e}")
 
     return {"received": len(points), "collection": QDRANT_COLLECTION}
