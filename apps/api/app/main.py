@@ -1,3 +1,4 @@
+from __future__ import annotations
 from fastapi import FastAPI, Body, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -71,7 +72,7 @@ def normalize_point_id(raw: Optional[str]) -> Any:
     except Exception:
         return str(uuid.uuid4())
 
-def stable_uuid_for(d: IngestDoc) -> str:
+def stable_uuid_for(d: "IngestDoc") -> str:
     """Stable UUID based on document identity (url|title|content).
     This makes ingest idempotent when no explicit id is supplied.
     """
