@@ -20,11 +20,12 @@ services:
     env_file:
       - /opt/stacks/powere-ch/.env
     environment:
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
-      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
-      QDRANT_URL: http://qdrant:6333
-      QDRANT_COLLECTION: powere_docs
-      EMBEDDING_MODEL: text-embedding-3-small
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - QDRANT_URL=http://qdrant:6333
+      - QDRANT_COLLECTION=${QDRANT_COLLECTION:-powere_docs}
+      - EMBED_BACKEND=${EMBED_BACKEND:-openai}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-text-embedding-3-small}
+      - FASTEMBED_MODEL=${FASTEMBED_MODEL:-sentence-transformers/all-MiniLM-L6-v2}
     depends_on:
       - qdrant
     ports:
