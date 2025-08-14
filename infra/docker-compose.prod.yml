@@ -6,17 +6,22 @@ services:
     volumes:
       - /srv/repos/powere.ch/apps/web/dist:/usr/share/nginx/html:ro
     restart: unless-stopped
-  
+
   qdrant:
-    image: qdrant/qdrant:1.9.0
+    image: qdrant/qdrant:1.9.0          # passt; später gern auf feste neuere Version pinnen
     volumes:
-      - qdrant_data:/qdrant/storage
+      - qdrant_data:/qdrant/storage     # named volume -> landet in /srv/docker/volumes/...
     restart: unless-stopped
 
   api:
     build:
       context: /srv/repos/powere.ch
       dockerfile: apps/api/Dockerfile
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}   # kommt aus /opt/stacks/powere-ch/.env
+      - QDRANT_URL=http://qdrant:6333
+    depends_on:
+      - qdrant
     ports:
       - "9000:8000"
     restart: unless-stopped
@@ -26,6 +31,6 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
-      
+
 volumes:
   qdrant_data:
