@@ -6,6 +6,12 @@ services:
     volumes:
       - /srv/repos/powere.ch/apps/web/dist:/usr/share/nginx/html:ro
     restart: unless-stopped
+  
+  qdrant:
+    image: qdrant/qdrant:1.9.0
+    volumes:
+      - qdrant_data:/qdrant/storage
+    restart: unless-stopped
 
   api:
     build:
@@ -20,3 +26,6 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+      
+volumes:
+  qdrant_data:
