@@ -8,7 +8,7 @@ services:
     restart: unless-stopped
 
   qdrant:
-    image: qdrant/qdrant:1.9.0          # passt; später gern auf feste neuere Version pinnen
+    image: qdrant/qdrant:latest          # passt; später gern auf feste neuere Version pinnen
     volumes:
       - qdrant_data:/qdrant/storage     # named volume -> landet in /srv/docker/volumes/...
     restart: unless-stopped
