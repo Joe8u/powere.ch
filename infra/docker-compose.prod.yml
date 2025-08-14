@@ -18,8 +18,10 @@ services:
       context: /srv/repos/powere.ch
       dockerfile: apps/api/Dockerfile
     environment:
-      - OPENAI_API_KEY=${OPENAI_API_KEY}   # kommt aus /opt/stacks/powere-ch/.env
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-https://api.openai.com/v1}
       - QDRANT_URL=http://qdrant:6333
+      - QDRANT_COLLECTION=powere_docs
     depends_on:
       - qdrant
     ports:
