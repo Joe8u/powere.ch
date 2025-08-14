@@ -7,7 +7,6 @@ import os, uuid, logging
 from openai import OpenAI
 from qdrant_client import QdrantClient
 from qdrant_client.http import models as qmodels
-import uuid
 
 # ---- Config ----
 BACKEND = os.getenv("EMBED_BACKEND", "openai").lower()  # "openai" | "fastembed"
@@ -72,6 +71,13 @@ def normalize_point_id(raw: Optional[str]) -> Any:
     except Exception:
         return str(uuid.uuid4())
 
+def stable_uuid_for(d: IngestDoc) -> str:
+    """Stable UUID based on document identity (url|title|content).
+    This makes ingest idempotent when no explicit id is supplied.
+    """
+    basis = f"{d.url or ''}|{d.title or ''}|{d.content}"
+    return str(uuid.uuid5(uuid.NAMESPACE_URL, basis))
+
 
 # ---- FastAPI ----
 app = FastAPI(title="powere.ch API", version="0.1.0")
@@ -121,7 +127,7 @@ def ingest(docs: List[IngestDoc] = Body(..., min_items=1)):
     try:
         points = []
         for d, vec in zip(docs, vectors):
-            pid = normalize_point_id(d.id)
+            pid = normalize_point_id(d.id) if d.id is not None else stable_uuid_for(d)
             payload = {"title": d.title, "url": d.url, "content": d.content}
             points.append(qmodels.PointStruct(id=pid, vector=vec, payload=payload))
         qdrant.upsert(collection_name=QDRANT_COLLECTION, points=points, wait=True)
@@ -224,14 +230,3 @@ def chat(req: ChatRequest):
         raise HTTPException(status_code=502, detail=f"chat_failed: {e}")
 
     return {"answer": answer, "citations": citations, "used_model": CHAT_MODEL}
-
-def stable_uuid_for(d: IngestDoc) -> str:
-    basis = f"{d.url or ''}|{d.title or ''}|{d.content}"
-    return str(uuid.uuid5(uuid.NAMESPACE_URL, basis))
-
-# ...
-points = []
-for d, vec in zip(docs, vectors):
-    pid = normalize_point_id(d.id) if d.id else stable_uuid_for(d)
-    payload = {"title": d.title, "url": d.url, "content": d.content}
-    points.append(qmodels.PointStruct(id=pid, vector=vec, payload=payload))
