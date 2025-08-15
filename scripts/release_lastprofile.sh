@@ -18,7 +18,7 @@ freq: 15min
 files:
 YAML
 
-# Einträge anhängen (zsh/bash-sicher – kein CMD in Variablen)
+# Einträge anhängen (zsh/bash-sicher)
 for f in "$ROOT/data/lastprofile/curated/$RELEASE"/*.csv; do
   rows=$(( $(wc -l < "$f") - 1 ))
   if command -v shasum >/dev/null 2>&1; then
@@ -30,7 +30,6 @@ for f in "$ROOT/data/lastprofile/curated/$RELEASE"/*.csv; do
   printf "  - name: %s\n    rows: %s\n    sha256: %s\n" "$base" "$rows" "$sha"
 done >> "$ROOT/data/lastprofile/curated/$RELEASE/manifest.yaml"
 
-# current-Link setzen (atomar)
 rm -f "$ROOT/data/lastprofile/curated/current"
 ln -s "$RELEASE" "$ROOT/data/lastprofile/curated/current"
 
