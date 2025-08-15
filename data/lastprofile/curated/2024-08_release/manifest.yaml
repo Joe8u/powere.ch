@@ -1,0 +1,43 @@
+release_id: 2024-08
+namespace: lastprofile
+year: 2024
+timezone: Europe/Zurich
+unit: MW
+freq: 15min
+files:
+  - name: 2024-01.csv
+    rows: 2976
+    sha256: 
+  - name: 2024-02.csv
+    rows: 2784
+    sha256: 
+  - name: 2024-03.csv
+    rows: 2976
+    sha256: 
+  - name: 2024-04.csv
+    rows: 2880
+    sha256: 
+  - name: 2024-05.csv
+    rows: 2976
+    sha256: 
+  - name: 2024-06.csv
+    rows: 2880
+    sha256: 
+  - name: 2024-07.csv
+    rows: 2976
+    sha256: 
+  - name: 2024-08.csv
+    rows: 2976
+    sha256: 
+  - name: 2024-09.csv
+    rows: 2880
+    sha256: 
+  - name: 2024-10.csv
+    rows: 2976
+    sha256: 
+  - name: 2024-11.csv
+    rows: 2880
+    sha256: 
+  - name: 2024-12.csv
+    rows: 2976
+    sha256: 
