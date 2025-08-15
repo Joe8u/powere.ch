@@ -7,37 +7,37 @@ freq: 15min
 files:
   - name: 2024-01.csv
     rows: 2976
-    sha256: 
+    sha256: 806cfbc14c1cec87581c6579ec80e0ab0aeaf09508fa6c25a59a31317fa4a999
   - name: 2024-02.csv
     rows: 2784
-    sha256: 
+    sha256: c293e643f08493e142d590c05945143d9d22f748c8b9b5e444c9bdf177277d87
   - name: 2024-03.csv
     rows: 2976
-    sha256: 
+    sha256: 112f25210e77f2f5e9fcc7d3d9d20512b57f4b6f8d6cbf9bdaa46a8de30a3c38
   - name: 2024-04.csv
     rows: 2880
-    sha256: 
+    sha256: d76729c1dfa78c95070b79df1513fec14052d0669861b82c177de88eccaf0c45
   - name: 2024-05.csv
     rows: 2976
-    sha256: 
+    sha256: 5bef4dc04c71640b428f64302b5953812fd209b55109c2276ad7745b603d2b4b
   - name: 2024-06.csv
     rows: 2880
-    sha256: 
+    sha256: cde0b923f43f0dfcb90ed15706a2edc4b51a2e546b853f5eed571791638d081d
   - name: 2024-07.csv
     rows: 2976
-    sha256: 
+    sha256: c65b88151e438ab11f9d8d76c089d3c648b179b884f1a0d78367691dfc84c4a4
   - name: 2024-08.csv
     rows: 2976
-    sha256: 
+    sha256: b260331e06bc22654a9c20384b1fb8e39fb11df7391905f55195173bd825b89f
   - name: 2024-09.csv
     rows: 2880
-    sha256: 
+    sha256: 667864e644d860e733beb29c40acadac2a8d1adb86478495bd6ea7c3bb474eff
   - name: 2024-10.csv
     rows: 2976
-    sha256: 
+    sha256: 8faa476319ac4b576c75ac21e30fd9a67df9dc13f7732e0984ac78429482be09
   - name: 2024-11.csv
     rows: 2880
-    sha256: 
+    sha256: d3aa10b7e2768abf4a5ab205867e1f38e3dd06d4897c85b3c6acd3836523cf10
   - name: 2024-12.csv
     rows: 2976
-    sha256: 
+    sha256: ad36dee5c18d1d16734e2697e2bd853ffabce248a0f9c078c87b61c1c38f2ba6
