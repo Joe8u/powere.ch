@@ -22,3 +22,19 @@ lp-release:
 
 # 3) Beides in einem Rutsch
 lp-all: lp-precompute lp-release
+
+.PHONY: survey-q1
+survey-q1:
+	@$(PY) processing/survey/jobs/preprocess_q1_age.py
+
+.PHONY: survey-q2
+survey-q2:
+	@$(PY) processing/survey/jobs/preprocess_q2_gender.py
+
+.PHONY: survey-q3
+survey-q3:
+	@$(PY) processing/survey/jobs/preprocess_q3_household_size.py
+
+.PHONY: survey-q4
+survey-q4:
+	@$(PY) processing/survey/jobs/preprocess_q4_accommodation.py
