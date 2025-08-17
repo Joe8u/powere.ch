@@ -10,3 +10,10 @@ __all__ = [
     "q10_incentive_wide","q11_notify_optin","q12_smartplug","q13_income",
     "q14_education","q15_party","join_demographics"
 ]
+
+from .attitudes import load_attitudes, load_challenges, load_consequence  # Q6/Q7
+
+try:
+    __all__.extend(["load_attitudes", "load_challenges", "load_consequence"])
+except NameError:  # falls __all__ oben nicht definiert wäre
+    __all__ = ["load_attitudes", "load_challenges", "load_consequence"]
