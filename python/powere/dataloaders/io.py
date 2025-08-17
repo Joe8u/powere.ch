@@ -1,9 +1,6 @@
 from pathlib import Path
-
-# 1. bevorzugt: .../python/powere/data  (Symlink -> ../../data)
-pkg_data = Path(__file__).resolve().parents[2] / "data"
-
-# 2. Fallback: Repo-Root / data
-repo_data = Path(__file__).resolve().parents[4] / "data"
-
+# Datei liegt unter .../python/powere/dataloaders/io.py
+_pkg_root = Path(__file__).resolve().parents[1]  # .../python/powere
+pkg_data  = _pkg_root / "data"                   # -> Symlink auf ../../data
+repo_data = _pkg_root.parents[1] / "data"        # .../powere.ch/data (Fallback)
 DATA_ROOT = pkg_data if pkg_data.exists() else repo_data
