@@ -1,3 +1,3 @@
-from steps.powere_lib.dataloaders.survey import load_incentives
+from steps.lib.dataloaders.survey import load_incentives
 shape = load_incentives().shape
 print("✅ Step 5 OK — Analysis kann Dataloader importieren. incentives:", shape)
