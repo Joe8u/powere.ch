@@ -1,9 +1,9 @@
+from pathlib import Path
+from typing import Optional
 import pandas as pd
 import numpy as np
-from pathlib import Path
-from ..io import DATA_ROOT
+from powere.dataloaders.io import DATA_ROOT
 
-# Verzeichnis der verarbeiteten Survey-Daten
 PROCESSED_DIR = DATA_ROOT / "survey" / "processed"
 
 FILES = {
@@ -14,27 +14,28 @@ FILES = {
     "electricity":    "question_5_electricity.csv",
 }
 
-def _read_csv_safe(path: Path, *, key: str | None = None) -> pd.DataFrame:
-    df = pd.DataFrame()
+def _read_csv_safe(path: Path, *, key: Optional[str] = None) -> pd.DataFrame:
     if not path.is_file():
         print(f"WARNUNG [demographics]: Datei fehlt: {path}")
-        return df
+        return pd.DataFrame()
     try:
         df = pd.read_csv(path, dtype=str, encoding="utf-8")
-        if not df.empty:
-            if "respondent_id" in df.columns:
-                s = df["respondent_id"].astype(str).str.replace(r"\.0$", "", regex=True)
-                s = s.replace(r"^\s*$", np.nan, regex=True).replace("nan", np.nan)
-                df["respondent_id"] = s
-                df.dropna(subset=["respondent_id"], inplace=True)
-            else:
-                print(f"WARNUNG [demographics]: 'respondent_id' fehlt in {path.name}")
+        if not df.empty and "respondent_id" in df.columns:
+            df["respondent_id"] = (
+                df["respondent_id"]
+                .str.replace(r"\.0$", "", regex=True)
+                .replace(r"^\s*$", np.nan, regex=True)
+                .replace("nan", np.nan)
+            )
+            df.dropna(subset=["respondent_id"], inplace=True)
+        elif not df.empty:
+            print(f"WARNUNG [demographics]: 'respondent_id' fehlt in {path.name}")
 
-            # optionale Typkonvertierungen
-            if key == "age" and "age" in df.columns:
-                df["age"] = pd.to_numeric(df["age"], errors="coerce")
-            if key == "household_size" and "household_size" in df.columns:
-                df["household_size"] = pd.to_numeric(df["household_size"], errors="coerce")
+        # optionale Typkonvertierungen
+        if key == "age" and "age" in df.columns:
+            df["age"] = pd.to_numeric(df["age"], errors="coerce")
+        if key == "household_size" and "household_size" in df.columns:
+            df["household_size"] = pd.to_numeric(df["household_size"], errors="coerce")
         return df
     except Exception as e:
         print(f"FEHLER [demographics] beim Lesen {path}: {e}")
