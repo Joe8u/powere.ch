@@ -1,16 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Preprocess Survey Q9 (Non-use willingness, wide):
-- liest das Survey-CSV (SurveyMonkey: 2. Kopfzeile wird übersprungen),
-- findet 'respondent_id' und die Q9-Fragespalte robust,
-- liest die 6 Geräte-Namen aus der zweiten Header-Zeile,
-- schreibt wide: respondent_id + 6 Gerätespalten mit bereinigten Textantworten.
-
-Aufruf (Repo-Root):
-  python3 processing/survey/jobs/preprocess_q9_nonuse_wide.py
-  # oder:
-  python3 processing/survey/jobs/preprocess_q9_nonuse_wide.py --infile ... --outfile ...
+Preprocess Survey Q9 (Non-use willingness, wide)
+- liest Survey-CSV (SurveyMonkey: 2. Kopfzeile wird übersprungen),
+- findet respondent_id und Q9-Fragespalte robust,
+- liest 6 Gerätenamen aus der zweiten Header-Zeile,
+- schreibt wide: respondent_id + 6 Gerätespalten (bereinigte Strings).
 """
 
 from __future__ import annotations
@@ -27,7 +22,6 @@ def project_root() -> Path:
         return Path.cwd()
 
 def read_raw_csv(path: Path) -> pd.DataFrame:
-    # SurveyMonkey-Export: zweite Kopfzeile (Options-/Response-Zeile) überspringen
     try:
         return pd.read_csv(path, encoding="utf-8", sep=",", header=0, skiprows=[1], dtype=str)
     except UnicodeDecodeError:
@@ -44,8 +38,7 @@ def _norm_key(s: str) -> str:
     if s is None:
         return ""
     return (
-        str(s)
-        .lower()
+        str(s).lower()
         .replace("ä","ae").replace("ö","oe").replace("ü","ue").replace("ß","ss")
         .replace(" ", "").replace("?", "").replace("*", "")
         .replace("(", "").replace(")", "").replace(",", "")
@@ -97,48 +90,56 @@ def preprocess(infile: Path, outfile: Path) -> None:
     if not resp_col:
         raise KeyError("respondent_id-Spalte nicht gefunden.")
 
-    # Q9-Frage (exakter Text als Kandidat)
+    # Q9-Frage (exakter Text als Kandidaten + Fallbacks)
     q9_candidates = [
         "Könnten Sie sich vorstellen, eines der folgenden Haushaltsgeräte für einen begrenzten Zeitraum nicht einzuschalten, wenn Sie vom Elektrizitätswerk darum gebeten werden?",
     ]
     q9_col = find_col_by_names(df.columns, q9_candidates)
     if not q9_col:
+        # leichter Fallback über Tokens
+        for col in df.columns:
+            key = _norm_key(col)
+            if all(t in key for t in ["vorstell", "geraete", "nicht", "einschalten"]):
+                q9_col = col
+                break
+    if not q9_col:
         raise KeyError("Q9-Fragespalte nicht gefunden.")
 
-    q_idx = df.columns.get_loc(q9_col)
+    # fester int-Index + zweite Header-Zeile
+    q_idx: int = list(df.columns).index(q9_col)
     second = read_second_header_row(infile)
 
-    # Offset automatisch bestimmen (wie bei Q8): ohne +1 vs. mit +1
+    # Offset bestimmen: direkt ab Frage vs. +1 verschoben
     slice0 = second[q_idx : q_idx + 6]
     slice1 = second[q_idx + 1 : q_idx + 7] if q_idx + 7 <= len(second) else []
 
-    def score(vals):
+    def score(vals: list[str]) -> int:
         vals = [str(v) if v is not None else "" for v in vals]
         nonempty = sum(1 for v in vals if v and v.lower() != "response")
         bonus = sum(1 for v in vals if _norm_key(v) in CANON_DEVICE_NAMES)
         return nonempty + bonus
 
-    chosen_offset = 0
-    if score(slice1) > score(slice0):
-        chosen_offset = 1
+    chosen_offset: int = 1 if score(slice1) > score(slice0) else 0
 
-    appliances_raw = second[q_idx + chosen_offset : q_idx + chosen_offset + 6]
+    # Start/Ende (klar typisiert) und Gerätenamen
+    start: int = q_idx + chosen_offset
+    end: int = start + 6
+    appliances_raw = second[start:end]
     if len(appliances_raw) != 6:
         print(f"[ERROR] Erwartet 6 Gerätebezeichner, gefunden {len(appliances_raw)}: {appliances_raw}", file=sys.stderr)
         sys.exit(1)
 
     appliances = [canonicalize_device_label(a) for a in appliances_raw]
 
-    # Daten-Spalten einsammeln: respondent_id + 6 Antwortspalten
-    rating_col_idxs = list(range(q_idx + chosen_offset, q_idx + chosen_offset + 6))
-    cols = [df.columns.get_loc(resp_col)] + rating_col_idxs
-    data = df.iloc[:, cols].copy()
+    # Spalten per Namen (statt Integer-Mix) auswählen
+    rating_col_names = [df.columns[i] for i in range(start, end)]
+    cols_names = [resp_col] + rating_col_names
+    data = df.loc[:, cols_names].copy()
     data.columns = ["respondent_id"] + appliances
 
     # Werte säubern: leere/nan -> <NA>, Whitespace kürzen
     for col in appliances:
-        s = data[col].astype("string")
-        s = s.str.strip()
+        s = data[col].astype("string").str.strip()
         s = s.replace({"": pd.NA, "nan": pd.NA, "NaN": pd.NA})
         data[col] = s
 

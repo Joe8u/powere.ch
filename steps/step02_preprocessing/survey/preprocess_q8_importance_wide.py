@@ -147,17 +147,17 @@ def preprocess(infile: Path, outfile: Path) -> None:
     if not q8_col:
         raise KeyError("Q8-Fragespalte nicht gefunden.")
 
-    q_idx = df.columns.get_loc(q8_col)
+    # Position der Q8-Frage und zweite Header-Zeile
+    q_idx: int = list(df.columns).index(q8_col)
     second = read_second_header_row(infile)
 
     # Zwei mögliche Slices testen: ohne +1 (Standard) und mit +1 (Fallback)
     slice0 = second[q_idx : q_idx + 6]
     slice1 = second[q_idx + 1 : q_idx + 7] if q_idx + 7 <= len(second) else []
 
-    def score_slice(vals):
+    def score_slice(vals: list[str]) -> int:
         vals_str = [str(v) if v is not None else "" for v in vals]
         nonempty = sum(1 for v in vals_str if v and v.lower() != "response")
-        # Bonus, wenn es wie bekannte Gerätenamen aussieht
         bonus = sum(1 for v in vals_str if _norm_key(v) in CANON_DEVICE_NAMES)
         return nonempty + bonus
 
@@ -165,17 +165,23 @@ def preprocess(infile: Path, outfile: Path) -> None:
     if score_slice(slice1) > score_slice(slice0):
         chosen_offset = 1
 
-    appliances_raw = second[q_idx + chosen_offset : q_idx + chosen_offset + 6]
+    # Start/Ende einmal ausrechnen (klar typisiert)
+    start = q_idx + chosen_offset
+    end = start + 6
+
+    appliances_raw = second[start:end]
     if len(appliances_raw) != 6:
         print(f"[ERROR] Erwartet 6 Gerätebezeichner, gefunden {len(appliances_raw)}: {appliances_raw}", file=sys.stderr)
         sys.exit(1)
 
     appliances = [canonicalize_device_label(a) for a in appliances_raw]
 
-    # Daten-Spalten einsammeln: respondent_id + 6 Ratingspalten
-    rating_col_idxs = list(range(q_idx + chosen_offset, q_idx + chosen_offset + 6))
-    cols = [df.columns.get_loc(resp_col)] + rating_col_idxs
-    data = df.iloc[:, cols].copy()
+    # Spalten per **Namen** auswählen statt per Integer-Index
+    start: int = int(start)
+    end: int = int(end)
+    rating_col_names = list(df.columns[start:end])
+    cols_names = [resp_col] + rating_col_names
+    data = df.loc[:, cols_names].copy()
     data.columns = ["respondent_id"] + appliances
 
     # Ratings parsen -> nullable Int64

@@ -142,7 +142,11 @@ def preprocess(infile: Path, outfile: Path) -> None:
     # Ergebnis-DataFrame aufbauen
     df_out = df[[resp_col]].copy()
     df_out.rename(columns={resp_col: "respondent_id"}, inplace=True)
-    df_out["accommodation_type"] = df.apply(lambda r: choose_from_block(r, q4_block), axis=1)
+
+    # Block normalisieren und erste nicht-NA je Zeile holen
+    norm_block = df[q4_block].apply(lambda s: s.map(normalize_accommodation))
+    first_non_na = norm_block.stack(dropna=True).groupby(level=0).first()
+    df_out["accommodation_type"] = first_non_na.reindex(df.index)
 
     # Ausgabe (nullable string, damit fehlende Werte als <NA> erscheinen)
     outfile.parent.mkdir(parents=True, exist_ok=True)

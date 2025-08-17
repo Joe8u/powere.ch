@@ -6,6 +6,7 @@ import sys
 import pandas as pd
 
 # 1) Dataloader-Imports: erst unter Step 04, sonst Fallback auf powere_lib
+# 1) Dataloader-Imports: zuerst relativ (als Paket), dann absolut (Fallback)
 try:
     from .dataloaders.io import DATA_ROOT
     from .dataloaders.lastprofile import (
@@ -15,12 +16,12 @@ try:
         load_attitudes, load_demand_response, load_demographics,
         load_incentives, load_nonuse, load_socioeconomics
     )
-except Exception:
+except ImportError:
     from steps.step04_dataloaders.dataloaders.io import DATA_ROOT
-    from steps.lib.dataloaders.lastprofile import (
+    from steps.step04_dataloaders.dataloaders.lastprofile import (
         list_appliances, load_month, load_range, load_appliances
     )
-    from steps.lib.dataloaders.survey import (
+    from steps.step04_dataloaders.dataloaders.survey import (
         load_attitudes, load_demand_response, load_demographics,
         load_incentives, load_nonuse, load_socioeconomics
     )
@@ -38,14 +39,24 @@ def must_exist_any(pairs: list[tuple[str, str]]) -> None:
         sys.exit(1)
 
 # 2) Dateien prüfen (neue "question_*" ODER alte "q*")
+
 must_exist_any([
+    # Demografie (Q1–Q5)
+    ("question_1_age.csv",             "q1_age.csv"),
+    ("question_2_gender.csv",          "q2_gender.csv"),
+    ("question_3_household_size.csv",  "q3_household_size.csv"),
+    ("question_4_accommodation.csv",   "q4_accommodation.csv"),
+    ("question_5_electricity.csv",     "q5_electricity.csv"),
+    # Wichtigkeit (Q8)
+    ("question_8_importance_wide.csv", "q8_importance_wide.csv"),
+    # Bereits drin (Q9–Q15)
+    ("question_9_nonuse_wide.csv",     "q9_nonuse_wide.csv"),
     ("question_10_incentive_wide.csv", "q10_incentive_wide.csv"),
-    ("question_9_nonuse_wide.csv",    "q9_nonuse_wide.csv"),
-    ("question_11_notify_optin.csv",  "q11_notify_optin.csv"),
-    ("question_12_smartplug.csv",     "q12_smartplug.csv"),
-    ("question_13_income.csv",        "q13_income.csv"),
-    ("question_14_education.csv",     "q14_education.csv"),
-    ("question_15_party.csv",         "q15_party.csv"),
+    ("question_11_notify_optin.csv",   "q11_notify_optin.csv"),
+    ("question_12_smartplug.csv",      "q12_smartplug.csv"),
+    ("question_13_income.csv",         "q13_income.csv"),
+    ("question_14_education.csv",      "q14_education.csv"),
+    ("question_15_party.csv",          "q15_party.csv"),
 ])
 
 # 3) Loader prüfen (nicht-leer)
