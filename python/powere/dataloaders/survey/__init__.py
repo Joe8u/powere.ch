@@ -8,6 +8,7 @@ from .demographics import (
     load_accommodation, load_electricity
 )
 from .incentives import load_incentives, load_question_10_incentives
+from .nonuse import load_nonuse, load_question_9_nonuse
 
 __all__ = [
     "load_attitudes", "load_challenges", "load_consequence",
@@ -15,4 +16,5 @@ __all__ = [
     "load_demographics", "load_age", "load_gender", "load_household_size",
     "load_accommodation", "load_electricity",
     "load_incentives", "load_question_10_incentives",
+    "load_nonuse", "load_question_9_nonuse",
 ]
