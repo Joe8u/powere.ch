@@ -21,6 +21,8 @@ from pydantic import BaseModel, Field
 from qdrant_client import QdrantClient
 from qdrant_client.http import models as qmodels
 
+
+
 # ---- Config ----
 BACKEND = os.getenv("EMBED_BACKEND", "openai").lower()  # "openai" | "fastembed"
 QDRANT_URL = os.getenv("QDRANT_URL", "http://qdrant:6333")
