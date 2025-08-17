@@ -16,7 +16,7 @@ try:
         load_incentives, load_nonuse, load_socioeconomics
     )
 except Exception:
-    from steps.lib.dataloaders.io import DATA_ROOT
+    from steps.step04_dataloaders.dataloaders.io import DATA_ROOT
     from steps.lib.dataloaders.lastprofile import (
         list_appliances, load_month, load_range, load_appliances
     )
