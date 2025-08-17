@@ -1,14 +1,11 @@
-from pathlib import Path
-import subprocess
+
+import os, subprocess
 from powere.etl.common import repo_root
 
 def main():
-    root = repo_root()
-    job = root / "processing" / "lastprofile" / "jobs" / "precompute_lastprofile_2024.py"
-    if not job.exists():
-        raise SystemExit(f"Job nicht gefunden: {job}")
-    print(f"[ETL] running {job.name}")
-    subprocess.run(["python3", str(job)], check=True)
+    env = dict(os.environ)
+    env["ROOT"] = str(repo_root())
+    subprocess.run(["python", "-m", "powere.etl.lastprofile.jobs.precompute_lastprofile_2024"], check=True, env=env)
     print("[OK] Lastprofile 2024 processed neu erzeugt.")
 
 if __name__ == "__main__":
