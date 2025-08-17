@@ -15,3 +15,8 @@ apps/api/.venv/
 # python build artefacts
 python/*.egg-info/
 python/**/__pycache__/
+
+.DS_Store
+.idea/
+.vscode/
+python/**/__pycache__/
