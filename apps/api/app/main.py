@@ -1,3 +1,6 @@
+from openai import OpenAI
+from openai.types.chat import ChatCompletionMessageParam
+client: OpenAI = OpenAI()
 #/Users/jonathan/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/powere.ch/apps/api/app/main.py
 from __future__ import annotations
 
@@ -72,7 +75,7 @@ if OPENAI_API_KEY:
     from openai import OpenAI as _ChatOpenAI  # type: ignore
     chat_client = _ChatOpenAI(api_key=OPENAI_API_KEY, timeout=OPENAI_TIMEOUT_SECONDS)
 
-    def _chat_complete(messages: List[Dict[str, str]]):
+    def _chat_complete(messages: list[ChatCompletionMessageParam]):
         last_err: Optional[Exception] = None
         for attempt in range(1, OPENAI_MAX_RETRIES + 1):
             try:
@@ -341,3 +344,4 @@ def chat(req: ChatRequest):
         raise HTTPException(status_code=502, detail=f"chat_failed: {e}")
 
     return {"answer": answer, "citations": citations, "used_model": CHAT_MODEL}
+
