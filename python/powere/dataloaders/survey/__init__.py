@@ -9,6 +9,9 @@ from .demographics import (
 )
 from .incentives import load_incentives, load_question_10_incentives
 from .nonuse import load_nonuse, load_question_9_nonuse
+from .socioeconomics import (
+    load_socioeconomics, load_income, load_education, load_party_pref
+)
 
 __all__ = [
     "load_attitudes", "load_challenges", "load_consequence",
@@ -17,4 +20,5 @@ __all__ = [
     "load_accommodation", "load_electricity",
     "load_incentives", "load_question_10_incentives",
     "load_nonuse", "load_question_9_nonuse",
+    "load_socioeconomics", "load_income", "load_education", "load_party_pref",
 ]
