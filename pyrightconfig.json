@@ -2,5 +2,14 @@
   "pythonVersion": "3.9",
   "venvPath": ".",
   "venv": ".venv",
-  "extraPaths": ["python"]
+  "extraPaths": ["python"],
+  "include": ["python"],
+  "exclude": [
+    "data",
+    "step_4_datenloader",
+    "processing",
+    "apps/api",
+    "**/.venv",
+    "**/__pycache__"
+  ]
 }
