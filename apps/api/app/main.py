@@ -2,8 +2,7 @@ from openai import OpenAI
 from openai.types.chat import ChatCompletionMessageParam
 client: OpenAI = OpenAI()
 #/Users/jonathan/Library/Mobile Documents/com~apple~CloudDocs/Documents/GitHub/powere.ch/apps/api/app/main.py
-from __future__ import annotations
-
+from app.lib.openai_wrap import chat_completion
 import os
 import uuid
 import logging

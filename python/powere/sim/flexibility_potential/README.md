@@ -1,1 +1,0 @@
-# step_6_Sozio-technisches_Simulationsmodell/step_6.1_Flexibility_Potential
