@@ -7,10 +7,12 @@ from .demographics import (
     load_demographics, load_age, load_gender, load_household_size,
     load_accommodation, load_electricity
 )
+from .incentives import load_incentives, load_question_10_incentives
 
 __all__ = [
     "load_attitudes", "load_challenges", "load_consequence",
     "load_demand_response", "load_importance", "load_notification", "load_smart_plug",
     "load_demographics", "load_age", "load_gender", "load_household_size",
     "load_accommodation", "load_electricity",
+    "load_incentives", "load_question_10_incentives",
 ]
