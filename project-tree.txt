@@ -1,0 +1,143 @@
+.
+├── .astro
+│   ├── collections
+│   │   └── docs.schema.json
+│   ├── content-assets.mjs
+│   ├── content-modules.mjs
+│   ├── content.d.ts
+│   ├── data-store.json
+│   ├── settings.json
+│   └── types.d.ts
+├── .dockerignore
+├── .gitignore
+├── analysis
+│   ├── results
+│   │   └── .gitkeep
+│   └── simulations
+│       └── .gitkeep
+├── apps
+│   ├── api
+│   │   ├── app
+│   │   │   ├── data_access
+│   │   │   └── main.py
+│   │   ├── Dockerfile
+│   │   └── requirements.txt
+│   └── web
+│       ├── .astro
+│       │   ├── collections
+│       │   ├── content-assets.mjs
+│       │   ├── content-modules.mjs
+│       │   ├── content.d.ts
+│       │   ├── data-store.json
+│       │   ├── settings.json
+│       │   └── types.d.ts
+│       ├── .vscode
+│       │   ├── extensions.json
+│       │   └── launch.json
+│       ├── astro.config.mjs
+│       ├── package-lock.json
+│       ├── package.json
+│       ├── public
+│       │   └── favicon.svg
+│       ├── src
+│       │   ├── assets
+│       │   ├── content
+│       │   └── content.config.ts
+│       └── tsconfig.json
+├── data
+│   ├── lastprofile
+│   │   ├── curated
+│   │   │   ├── .gitkeep
+│   │   │   ├── 2024-08_release
+│   │   │   └── current -> 2024-08_release
+│   │   ├── processed
+│   │   │   └── 2024
+│   │   └── raw
+│   │       ├── .gitkeep
+│   │       └── Swiss_load_curves_2015_2035_2050.csv
+│   ├── survey
+│   │   ├── curated
+│   │   │   └── .gitkeep
+│   │   ├── processed
+│   │   │   ├── .gitkeep
+│   │   │   ├── question_1_age.csv
+│   │   │   ├── question_10_incentive_wide.csv
+│   │   │   ├── question_11_notify_optin.csv
+│   │   │   ├── question_12_smartplug.csv
+│   │   │   ├── question_13_income.csv
+│   │   │   ├── question_14_education.csv
+│   │   │   ├── question_15_party.csv
+│   │   │   ├── question_2_gender.csv
+│   │   │   ├── question_3_household_size.csv
+│   │   │   ├── question_4_accommodation.csv
+│   │   │   ├── question_5_electricity.csv
+│   │   │   ├── question_6_challenges.csv
+│   │   │   ├── question_7_consequence.csv
+│   │   │   ├── question_8_importance_wide.csv
+│   │   │   └── question_9_nonuse_wide.csv
+│   │   └── raw
+│   │       ├── .gitkeep
+│   │       └── Energieverbrauch und Teilnahmebereitschaft an Demand-Response-Programmen in Haushalten.csv
+│   └── thesis
+│       ├── curated
+│       │   └── .gitkeep
+│       ├── processed
+│       │   └── .gitkeep
+│       └── raw
+│           └── .gitkeep
+├── infra
+│   └── docker-compose.prod.yml
+├── knowledge
+│   └── .gitkeep
+├── Makefile
+├── processing
+│   ├── docs
+│   │   └── .gitkeep
+│   ├── lastprofile
+│   │   ├── docs
+│   │   │   └── .gitkeep
+│   │   └── jobs
+│   │       ├── .gitkeep
+│   │       └── precompute_lastprofile_2024.py
+│   ├── lib
+│   │   ├── dataloaders
+│   │   │   └── .gitkeep
+│   │   ├── transforms
+│   │   │   └── .gitkeep
+│   │   └── validators
+│   │       └── .gitkeep
+│   ├── requirements.txt
+│   ├── schemas
+│   │   └── .gitkeep
+│   ├── survey
+│   │   ├── docs
+│   │   │   └── .gitkeep
+│   │   └── jobs
+│   │       ├── .gitkeep
+│   │       ├── preprocess_q1_age.py
+│   │       ├── preprocess_q10_incentive_wide.py
+│   │       ├── preprocess_q11_notify_optin.py
+│   │       ├── preprocess_q12_smartplug.py
+│   │       ├── preprocess_q13_income.py
+│   │       ├── preprocess_q14_education.py
+│   │       ├── preprocess_q15_party.py
+│   │       ├── preprocess_q2_gender.py
+│   │       ├── preprocess_q3_household_size.py
+│   │       ├── preprocess_q4_accommodation.py
+│   │       ├── preprocess_q5_electricity.py
+│   │       ├── preprocess_q6_challenges.py
+│   │       ├── preprocess_q7_consequence.py
+│   │       ├── preprocess_q8_importance_wide.py
+│   │       └── preprocess_q9_nonuse_wide.py
+│   └── thesis
+│       ├── docs
+│       │   └── .gitkeep
+│       └── jobs
+│           └── .gitkeep
+├── project-tree.txt
+├── python
+├── README.md
+└── scripts
+    └── release_lastprofile.sh
+
+54 directories, 87 files

@@ -27,13 +27,17 @@ services:
       - EMBED_BACKEND=${EMBED_BACKEND:-openai}
       - EMBEDDING_MODEL=${EMBEDDING_MODEL:-text-embedding-3-small}
       - FASTEMBED_MODEL=${FASTEMBED_MODEL:-sentence-transformers/all-MiniLM-L6-v2}
+      - DATA_ROOT=/app/data
+    volumes:
+      - /srv/repos/powere.ch/data:/app/data:ro
     depends_on:
       - qdrant
     ports:
       - "9000:8000"
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/healthz',timeout=2).status==200 else 1)"]
+      # Pfad an deinen Health-Endpoint anpassen: /health ODER /healthz
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health',timeout=2).status==200 else 1)"]
       interval: 30s
       timeout: 5s
       retries: 3

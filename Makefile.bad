@@ -38,3 +38,11 @@ survey-q3:
 .PHONY: survey-q4
 survey-q4:
 	@$(PY) processing/survey/jobs/preprocess_q4_accommodation.py
+.PHONY: survey-all survey-clean
+
+survey-all:
+\t./scripts/rebuild_survey_processed.sh
+
+survey-clean:
+\trm -f data/survey/processed/question_*.csv
+
