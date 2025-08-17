@@ -11,3 +11,7 @@ apps/api/.venv/
 !data/**/.gitkeep
 !analysis/**/.gitkeep
 !knowledge/**/.gitkeep
+
+# python build artefacts
+python/*.egg-info/
+python/**/__pycache__/
