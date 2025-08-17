@@ -12,7 +12,7 @@ assert isinstance(df, pd.DataFrame) and not df.empty and isinstance(df.index, pd
 df = df.sort_index()
 
 # 2) Naives DR-Fenster: Stunde mit höchster Gesamtlast
-hourly_total = df.sum(axis=1).resample("1H").mean()
+hourly_total = df.sum(axis=1).resample("1h").mean()
 w_start = hourly_total.idxmax()
 w_end   = w_start + timedelta(hours=1)
 
