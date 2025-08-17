@@ -17,3 +17,18 @@ try:
     __all__.extend(["load_attitudes", "load_challenges", "load_consequence"])
 except NameError:  # falls __all__ oben nicht definiert wäre
     __all__ = ["load_attitudes", "load_challenges", "load_consequence"]
+
+from .demographics import (
+    load_demographics, load_age, load_gender, load_household_size,
+    load_accommodation, load_electricity, load_income, load_education, load_party
+)
+try:
+    __all__.extend([
+        "load_demographics","load_age","load_gender","load_household_size",
+        "load_accommodation","load_electricity","load_income","load_education","load_party"
+    ])
+except NameError:
+    __all__ = [
+        "load_demographics","load_age","load_gender","load_household_size",
+        "load_accommodation","load_electricity","load_income","load_education","load_party"
+    ]
