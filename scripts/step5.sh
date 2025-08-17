@@ -1,3 +1,4 @@
 #!/usr/bin/env bash
 set -euo pipefail
-python steps/05_analysis/check.py
+export PYTHONPATH="."
+python -m steps.step05_analysis.check
