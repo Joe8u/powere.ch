@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
 set -euo pipefail
-test -d steps/03_processed_data/survey && test -d steps/03_processed_data/lastprofile
-echo "✅ Step 3 OK — processed-data Links vorhanden."
+export PYTHONPATH="."
+python -m steps.step03_processed_data.check
