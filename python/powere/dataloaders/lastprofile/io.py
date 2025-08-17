@@ -2,7 +2,7 @@ from __future__ import annotations
 from pathlib import Path
 import datetime as dt
 import pandas as pd
-from ..common import DATA_ROOT
+from ..io import DATA_ROOT
 
 # processed/2024 enthält bereits aggregierte Survey-Kategorien als Spalten
 GROUP_MAP = {
