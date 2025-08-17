@@ -6,3 +6,11 @@ survey-all:
 
 survey-clean:
 	rm -f data/survey/processed/question_*.csv
+
+.PHONY: survey-all survey-clean
+
+survey-all:
+	python -m powere.etl.survey.run_all
+
+survey-clean:
+	rm -f data/survey/processed/question_*.csv
