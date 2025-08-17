@@ -14,3 +14,7 @@ survey-all:
 
 survey-clean:
 	rm -f data/survey/processed/question_*.csv
+
+.PHONY: lp-precompute
+lp-precompute:
+	python -m powere.etl.lastprofile.precompute
