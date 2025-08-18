@@ -1,49 +1,38 @@
-# Starlight Starter Kit: Basics
+# powere.ch – Website, API & AI-Guide (RAG) + DR-Simulationen
 
-[![Built with Starlight](https://astro.badg.es/v2/built-with-starlight/tiny.svg)](https://starlight.astro.build)
+[![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)]()
+[![FastAPI](https://img.shields.io/badge/FastAPI-🚀-009688)]()
+[![Astro](https://img.shields.io/badge/Astro-web-orange.svg)]()
+[![Qdrant](https://img.shields.io/badge/VectorDB-Qdrant-6f42c1.svg)]()
 
-```
-npm create astro@latest -- --template starlight
-```
+Monorepo für **powere.ch**:
 
-> 🧑‍🚀 **Seasoned astronaut?** Delete this file. Have fun!
+- **Web** – Statische Seite mit Astro/Starlight (`apps/web`)
+- **API** – FastAPI-Backend mit RAG (Qdrant + Embeddings) (`apps/api`)
+- **AI-Guide (RAG)** – Wissensbasis & Indizierung (`ai_guide`)
+- **Modelle/Steps** – DR-Fenster, Flex-Simulationen (`steps/**`)
 
-## 🚀 Project Structure
+Ziel: Daten + Modelle + Erklärtexte konsistent bereitstellen – inkl. Chat-Suche über eigene Inhalte (RAG) und reproduzierbaren **Demand-Response**-Simulationen.
 
-Inside of your Astro + Starlight project, you'll see the following folders and files:
+---
 
-```
-.
-├── public/
-├── src/
-│   ├── assets/
-│   ├── content/
-│   │   └── docs/
-│   └── content.config.ts
-├── astro.config.mjs
-├── package.json
-└── tsconfig.json
-```
+## Inhaltsverzeichnis
 
-Starlight looks for `.md` or `.mdx` files in the `src/content/docs/` directory. Each file is exposed as a route based on its file name.
+- [Architektur](#architektur)
+- [Schnellstart (lokal)](#schnellstart-lokal)
+- [Produktion (Docker Compose)](#produktion-docker-compose)
+- [API – Endpunkte](#api--endpunkte)
+- [DR-Simulationen (tre01…tre06)](#dr-simulationen-tre01tre06)
+- [Große Dateien (Git LFS)](#große-dateien-git-lfs)
+- [Troubleshooting](#troubleshooting)
+- [Lizenz](#lizenz)
 
-Images can be added to `src/assets/` and embedded in Markdown with a relative link.
+---
 
-Static assets, like favicons, can be placed in the `public/` directory.
+## Architektur
 
-## 🧞 Commands
-
-All commands are run from the root of the project, from a terminal:
-
-| Command                   | Action                                           |
-| :------------------------ | :----------------------------------------------- |
-| `npm install`             | Installs dependencies                            |
-| `npm run dev`             | Starts local dev server at `localhost:4321`      |
-| `npm run build`           | Build your production site to `./dist/`          |
-| `npm run preview`         | Preview your build locally, before deploying     |
-| `npm run astro ...`       | Run CLI commands like `astro add`, `astro check` |
-| `npm run astro -- --help` | Get help using the Astro CLI                     |
-
-## 👀 Want to learn more?
-
-Check out [Starlight’s docs](https://starlight.astro.build/), read [the Astro documentation](https://docs.astro.build), or jump into the [Astro Discord server](https://astro.build/chat).
+```text
+Internet ─▶ Nginx Proxy Manager (ubuntu-vm)
+        ├─▶ https://www.powere.ch  → web (Nginx, Astro dist)
+        └─▶ https://api.powere.ch  → api (FastAPI, RAG)
+                           └─▶ Qdrant (Vector-DB)
