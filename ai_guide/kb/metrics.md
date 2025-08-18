@@ -1,0 +1,3 @@
+- **event_max_comp_chf_per_hh [CHF]** = avg_tre_price_paid [CHF/kWh] * event_kwh_cap [kWh]
+- **kompensation_pro_haushalt_pro_event_chf [CHF]** ≤ event_max_comp_chf_per_hh
+- **shiftable_energy_mwh [MWh]** = min(window_limit_mwh, hh_limit_mwh)

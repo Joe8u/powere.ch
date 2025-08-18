@@ -1,29 +1,16 @@
 # steps/step06_sozio_technisches_simulationsmodell/flexibility_potential/a_survey_data_preparer.py
 from __future__ import annotations
-import unicodedata
+
 import re
 from typing import Optional, Tuple
 import numpy as np
 import pandas as pd
 
-def _strip_accents(s: str) -> str:
-    s = unicodedata.normalize("NFKD", s)
-    return "".join(ch for ch in s if not unicodedata.combining(ch))
-
-def _norm_dev_key(s: str) -> str:
-    if s is None:
-        return ""
-    s = _strip_accents(str(s)).lower().strip()
-    s = s.replace("&", "und")
-    s = re.sub(r"[--–—_/]+", " ", s)   # Bindestriche etc. vereinheitlichen
-    s = re.sub(r"\s+", " ", s)
-    return s
-
-
-# ⬇️ nutzt jetzt die Step-4-Dataloader statt src.*
+# ⬇️ nutzt die Step-4-Dataloader
 from steps.step04_dataloaders.dataloaders.survey import load_nonuse, load_incentives
 
-# Kanonische Gerätespalten (wie in unseren processed/wide-Dateien)
+
+# -------------------- Kanonische Gerätespalten --------------------
 APPLIANCES = [
     "Geschirrspüler",
     "Backofen und Herd",
@@ -32,73 +19,27 @@ APPLIANCES = [
     "Waschmaschine",
     "Staubsauger",
 ]
-def _melt_q10_wide_choice_pct(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Erwartet Spalten wie '<device>_choice' und '<device>_pct' (string).
-    Gibt long: respondent_id, device, q10_choice_text, q10_pct_required_text
-    """
-    rows = []
-    if "respondent_id" not in df.columns:
-        return pd.DataFrame(columns=["respondent_id", "device", "q10_choice_text", "q10_pct_required_text"])
 
-    for dev in APPLIANCES:
-        choice_col = f"{dev}_choice"
-        pct_col    = f"{dev}_pct"
-        if choice_col in df.columns or pct_col in df.columns:
-            tmp = df[["respondent_id"]].copy()
-            tmp["q10_choice_text"] = df[choice_col].astype("string").str.strip() if choice_col in df.columns else pd.NA
-            tmp["q10_pct_required_text"] = df[pct_col].astype("string").str.strip() if pct_col in df.columns else pd.NA
-            tmp["device"] = dev
-            rows.append(tmp)
-
-    if not rows:
-        return pd.DataFrame(columns=["respondent_id", "device", "q10_choice_text", "q10_pct_required_text"])
-
-    out = pd.concat(rows, ignore_index=True)
-    out["q10_pct_required_text"] = out["q10_pct_required_text"].str.replace("%", "", regex=False).str.strip()
-    out.loc[out["q10_pct_required_text"] == "", "q10_pct_required_text"] = pd.NA
-    return out[["respondent_id", "device", "q10_choice_text", "q10_pct_required_text"]]
-# --- robuste Normalisierung der Q10-Choice-Texte ---
-def _canon_choice(val) -> str:
-    if val is None or (isinstance(val, float) and pd.isna(val)):
-        return "unknown_choice"
-    s = str(val).strip().lower()
-
-    # bereits kanonisch?
-    if s in {"yes_fixed", "yes_conditional", "no"}:
-        return s
-
-    # deutsche Kurz-/Langformen robust erkennen
-    if s.startswith("ja, f") or "fix" in s:
-        return "yes_fixed"
-    if s.startswith("ja, +") or "zus" in s or "conditional" in s:
-        return "yes_conditional"
-    if s.startswith("nein"):
-        return "no"
-    return "unknown_choice"
-
-# Q9-Text -> Stunden (dein Mapping 1:1 übernommen)
-Q9_DURATION_MAPPING: dict[str, float] = {
-    "Nein, auf keinen Fall": 0.0,
-    "Ja, aber maximal für 3 Stunden": 1.5,
-    "Ja, für 3 bis 6 Stunden": 4.5,
-    "Ja, für 6 bis 12 Stunden": 9.0,
-    "Ja, für maximal 24 Stunden": 24.0,
-    "Ja, für mehr als 24 Stunden": 30.0,
+# Nur für Q10-*_choice/_pct: base->kanonisch (Quick-Fix TV)
+_Q10_BASE_TO_CANON = {
+    "Fernseher und Entertainment": "Fernseher und Entertainment-Systeme",
+    # weitere Sonderfälle hier ergänzen, falls nötig
 }
 
 
-# ---------- Hilfen für Wide→Long ----------
+# -------------------- Helper --------------------
 def _device_cols(df: pd.DataFrame) -> list[str]:
     return [c for c in df.columns if c in APPLIANCES]
 
 
 def _melt_device_wide(df: pd.DataFrame, value_name: str) -> pd.DataFrame:
+    """Erwartet: 'respondent_id' und Gerätespalten exakt wie in APPLIANCES."""
+    if df.empty or "respondent_id" not in df.columns:
+        return pd.DataFrame(columns=["respondent_id", "device", value_name])
     dev_cols = _device_cols(df)
     if not dev_cols:
         return pd.DataFrame(columns=["respondent_id", "device", value_name])
 
-    # vorher: id_vars=["respondent_id"]
     tmp = pd.melt(
         df[["respondent_id"] + dev_cols],
         id_vars=["respondent_id"],
@@ -110,6 +51,51 @@ def _melt_device_wide(df: pd.DataFrame, value_name: str) -> pd.DataFrame:
     tmp.dropna(subset=[value_name], inplace=True)
     tmp = tmp[tmp[value_name] != ""]
     return tmp
+
+
+def _melt_q10_wide_choice_pct(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    NEU (schlank): Erkenne *_choice / *_pct automatisch, mappe den Basisnamen ggf. auf
+    den kanonischen Gerätenamen (Quick-Fix für TV), und baue ein long-DF.
+    """
+    if df.empty or "respondent_id" not in df.columns:
+        return pd.DataFrame(columns=["respondent_id", "device", "q10_choice_text", "q10_pct_required_text"])
+
+    bases: set[str] = set()
+    for c in df.columns:
+        if c.endswith("_choice"):
+            bases.add(c[:-7])
+        elif c.endswith("_pct"):
+            bases.add(c[:-4])
+
+    rows = []
+    for base in bases:
+        # Basisname -> kanonisch (nur wenn nötig)
+        canon = _Q10_BASE_TO_CANON.get(base, base)
+        if canon not in APPLIANCES:
+            # wenn der gemappte Name nicht in APPLIANCES ist, überspringen
+            continue
+
+        choice_col = f"{base}_choice" if f"{base}_choice" in df.columns else None
+        pct_col    = f"{base}_pct"    if f"{base}_pct"    in df.columns else None
+        if not choice_col and not pct_col:
+            continue
+
+        tmp = df[["respondent_id"]].copy()
+        tmp["device"] = canon
+        tmp["q10_choice_text"] = df[choice_col].astype("string").str.strip() if choice_col else pd.NA
+        tmp["q10_pct_required_text"] = df[pct_col].astype("string").str.strip() if pct_col else pd.NA
+        rows.append(tmp)
+
+    if not rows:
+        return pd.DataFrame(columns=["respondent_id", "device", "q10_choice_text", "q10_pct_required_text"])
+
+    out = pd.concat(rows, ignore_index=True)
+    out["q10_pct_required_text"] = (
+        out["q10_pct_required_text"].astype("string").str.replace("%", "", regex=False).str.strip()
+    )
+    out.loc[out["q10_pct_required_text"] == "", "q10_pct_required_text"] = pd.NA
+    return out[["respondent_id", "device", "q10_choice_text", "q10_pct_required_text"]]
 
 
 # ---------- Q9 aus Step-4 laden (Wide→Long) ----------
@@ -124,10 +110,9 @@ def load_q9_nonuse_long_from_step4() -> pd.DataFrame:
 # ---------- Q10 aus Step-4 laden (robust, Wide oder Respondent-Level) ----------
 _Q10_NUM_RE = re.compile(r"(\d+(?:[.,]\d+)?)")
 
-
 def _parse_q10_cell(val: Optional[str]) -> Tuple[Optional[str], Optional[str]]:
     """Text/Numeric -> ('Ja, f' | 'Ja, +' | 'Nein' | None, pct_text|None)"""
-    if val is None or (isinstance(val, float) and np.isnan(val)):
+    if val is None or (isinstance(val, float) and pd.isna(val)):
         return None, None
     s = str(val).strip()
     if not s:
@@ -155,16 +140,25 @@ def _parse_q10_cell(val: Optional[str]) -> Tuple[Optional[str], Optional[str]]:
 
 
 def load_q10_incentives_long_from_step4(q9_devices: Optional[pd.DataFrame] = None) -> pd.DataFrame:
+    """
+    Liefert long-Format mit Spalten:
+      respondent_id, device, q10_choice_text, q10_pct_required_text
+
+    Erkennt automatisch:
+      - A1: Wide mit '<device>_choice' / '<device>_pct' (über Column-Scan + Quick-Fix TV)
+      - A2: Wide mit einem kombinierten Feld je Gerät (Spalten-Namen genau wie Geräte)
+      - B : Respondent-Level → auf Geräte expandieren
+    """
     df = load_incentives()
     if df.empty or "respondent_id" not in df.columns:
         return pd.DataFrame(columns=["respondent_id", "device", "q10_choice_text", "q10_pct_required_text"])
 
-    # Fall A1: wide mit '<device>_choice' / '<device>_pct'
-    has_choice_pct = any((f"{dev}_choice" in df.columns) or (f"{dev}_pct" in df.columns) for dev in APPLIANCES)
+    # A1: *_choice/_pct (NEU: nicht über APPLIANCES raten, sondern scannen)
+    has_choice_pct = any(c.endswith("_choice") or c.endswith("_pct") for c in df.columns)
     if has_choice_pct:
         return _melt_q10_wide_choice_pct(df)
 
-    # Fall A2: wide mit einem kombinierten Feld je Gerät (Spalten-Namen genau wie Geräte)
+    # A2: Gerätespalten heißen exakt wie APPLIANCES → kombiniertes Feld je Gerät
     dev_cols = _device_cols(df)
     if dev_cols:
         melted = _melt_device_wide(df, "raw_q10")
@@ -174,7 +168,7 @@ def load_q10_incentives_long_from_step4(q9_devices: Optional[pd.DataFrame] = Non
         melted.drop(columns=["raw_q10"], inplace=True)
         return melted[["respondent_id", "device", "q10_choice_text", "q10_pct_required_text"]]
 
-    # Fall B: respondent-level Felder finden und auf Geräte expandieren (wie bisher)
+    # B: respondent-level Felder finden und auf Geräte expandieren
     choice_col = None
     pct_col = None
     for c in df.columns:
@@ -190,6 +184,7 @@ def load_q10_incentives_long_from_step4(q9_devices: Optional[pd.DataFrame] = Non
         df[pct_col].astype("string").str.replace("%", "", regex=False).str.strip() if pct_col else pd.NA
     )
 
+    # Fallback: ein kombiniertes Textfeld parsen
     if choice_col is None and pct_col is None:
         text_col = None
         for c in df.columns:
@@ -204,6 +199,7 @@ def load_q10_incentives_long_from_step4(q9_devices: Optional[pd.DataFrame] = Non
                 rows.append((rid, ch, pct))
             base = pd.DataFrame(rows, columns=["respondent_id", "q10_choice_text", "q10_pct_required_text"])
 
+    # Auf Geräte bringen
     if q9_devices is not None and not q9_devices.empty:
         long = q9_devices.merge(base, on="respondent_id", how="left")
     else:
@@ -216,7 +212,34 @@ def load_q10_incentives_long_from_step4(q9_devices: Optional[pd.DataFrame] = Non
     return long[["respondent_id", "device", "q10_choice_text", "q10_pct_required_text"]]
 
 
-# ---------- Hauptfunktion (wie bei dir) ----------
+# -------------------- Choice-Normalisierung --------------------
+def _canon_choice(val) -> str:
+    if val is None or (isinstance(val, float) and pd.isna(val)):
+        return "unknown_choice"
+    s = str(val).strip().lower()
+    if s in {"yes_fixed", "yes_conditional", "no"}:
+        return s
+    if s.startswith("ja, f") or "fix" in s:
+        return "yes_fixed"
+    if s.startswith("ja, +") or "zus" in s or "conditional" in s:
+        return "yes_conditional"
+    if s.startswith("nein"):
+        return "no"
+    return "unknown_choice"
+
+
+# -------------------- Q9-Text → Stunden --------------------
+Q9_DURATION_MAPPING: dict[str, float] = {
+    "Nein, auf keinen Fall": 0.0,
+    "Ja, aber maximal für 3 Stunden": 1.5,
+    "Ja, für 3 bis 6 Stunden": 4.5,
+    "Ja, für 6 bis 12 Stunden": 9.0,
+    "Ja, für maximal 24 Stunden": 24.0,
+    "Ja, für mehr als 24 Stunden": 30.0,
+}
+
+
+# -------------------- Hauptfunktion --------------------
 def prepare_survey_flexibility_data() -> pd.DataFrame:
     """
     Liefert zusammengeführt pro respondent_id & device:
@@ -243,10 +266,10 @@ def prepare_survey_flexibility_data() -> pd.DataFrame:
     else:
         q10_proc = q10_long.copy()
 
-        # 1) Choice robust auf kanonische Labels mappen
+        # Choice → kanonisch
         q10_proc["survey_incentive_choice"] = q10_proc["q10_choice_text"].apply(_canon_choice)
 
-        # 2) Prozent extrahieren → numerisch
+        # Prozent → numerisch
         q10_proc["q10_pct_required_text"] = (
             q10_proc["q10_pct_required_text"]
             .astype("string")
@@ -258,13 +281,7 @@ def prepare_survey_flexibility_data() -> pd.DataFrame:
             q10_proc["q10_pct_required_text"], errors="coerce"
         )
 
-        # 3) yes_fixed ⇒ 0.0 %
-        q10_proc.loc[
-            q10_proc["survey_incentive_choice"] == "yes_fixed",
-            "survey_incentive_pct_required"
-        ] = 0.0
-
-        # 3) yes_fixed ⇒ 0.0 %
+        # yes_fixed ⇒ 0.0 %
         q10_proc.loc[q10_proc["survey_incentive_choice"] == "yes_fixed", "survey_incentive_pct_required"] = 0.0
 
         q10_proc = q10_proc[
