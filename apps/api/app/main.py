@@ -4,12 +4,12 @@ from fastapi import FastAPI, Body, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
 from pydantic import BaseModel
-from typing import List, Optional, Any
+from typing import List, Optional, Any, cast  # ← cast importieren
 import os, uuid, logging
 
 from qdrant_client import QdrantClient
-from qdrant_client.http.models import PointStruct, VectorParams, Distance
-from openai import OpenAI  # ist installiert laut requirements
+from qdrant_client.http.models import VectorParams, Distance, Batch
+from openai import OpenAI # ist installiert laut requirements
 
 # -----------------------------------------------------------------------------
 # Konfiguration
@@ -158,16 +158,17 @@ def ingest(docs: List[IngestDoc] = Body(..., min_items=1)):
         logging.exception("embedding_failed")
         raise HTTPException(status_code=502, detail=f"embedding_failed: {e}")
 
-    points: list[PointStruct] = []
+    ids: list[str | int] = []
+    payloads: list[dict[str, Any]] = []
+
     for d, vec in zip(docs, vectors):
         pid = normalize_point_id(d.id) if d.id is not None else stable_uuid_for(d)
-        payload = {"title": d.title, "url": d.url, "content": d.content}
-        points.append(PointStruct(id=pid, vector=vec, payload=payload))
-
-    qdrant.upsert(collection_name=QDRANT_COLLECTION, points=points, wait=True)
+        ids.append(pid)
+        payloads.append({"title": d.title, "url": d.url, "content": d.content})
 
     try:
-        qdrant.upsert(collection_name=QDRANT_COLLECTION, points=points, wait=True)
+        batch = Batch(ids=ids, vectors=vectors, payloads=payloads)
+        qdrant.upsert(collection_name=QDRANT_COLLECTION, points=batch, wait=True)
     except Exception as e:
         logging.exception("qdrant_upsert_failed")
         raise HTTPException(status_code=500, detail=f"qdrant_upsert_failed: {e}")
