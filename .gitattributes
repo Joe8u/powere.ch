@@ -1,0 +1,2 @@
+data/market/processed/**/regelenergie/*.csv filter=lfs diff=lfs merge=lfs -text
+data/market/raw/**/*.csv filter=lfs diff=lfs merge=lfs -text
