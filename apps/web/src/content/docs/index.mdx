@@ -1,36 +1,53 @@
 ---
-title: Welcome to Starlight
-description: Get started building your docs site with Starlight.
+title: powere.ch – Virtuelle Kraftwerke verständlich machen
 template: splash
+description: Unabhängige Plattform auf Basis eigener Forschung: Virtuelle Kraftwerke (VPPs), dezentrale Flexibilität und ein KI-gestützter Guide.
+# Optional: hero.image (später, wenn Logo/Grafik da ist)
 hero:
-  tagline: Congrats on setting up a new Starlight project!
-  image:
-    file: ../../assets/houston.webp
+  title: powere.ch
+  tagline: Eine unabhängige Plattform auf Basis meiner Forschung – für Haushalte, Energieversorger und Politik.
   actions:
-    - text: Example Guide
-      link: /guides/example/
-      icon: right-arrow
-    - text: Read the Starlight docs
-      link: https://starlight.astro.build
-      icon: external
+    - text: Kurzfassung lesen
+      link: /executive-summary/
+      icon: open-book
+      variant: primary
+    - text: KI-Guide (Beta)
+      link: /guide/
+      icon: rocket
+      variant: secondary
+    - text: Kontakt
+      link: /kontakt/
+      icon: email
       variant: minimal
 ---
 
-import { Card, CardGrid } from '@astrojs/starlight/components';
+import { Card, CardGrid, LinkButton } from '@astrojs/starlight/components';
 
-## Next steps
+## Warum powere.ch?
+
+Ich sehe das Projekt als Ausgangspunkt für meine berufliche Zukunft im Energiesektor. Ziel ist eine Plattform, die Ergebnisse meiner Forschung zugänglich macht und die **Legitimation von Virtuellen Kraftwerken (VPPs)** stärkt – als Nischeninnovation im Sinne des **Multi-Level-Perspective-Modells**.
 
 <CardGrid stagger>
-	<Card title="Update content" icon="pencil">
-		Edit `src/content/docs/index.mdx` to see this page change.
-	</Card>
-	<Card title="Add new content" icon="add-document">
-		Add Markdown or MDX files to `src/content/docs` to create new pages.
-	</Card>
-	<Card title="Configure your site" icon="setting">
-		Edit your `sidebar` and other config in `astro.config.mjs`.
-	</Card>
-	<Card title="Read the docs" icon="open-book">
-		Learn more in [the Starlight Docs](https://starlight.astro.build/).
-	</Card>
+  <Card title="TL;DR – Win-Win möglich" icon="approve-check">
+    Haushalte sind grundsätzlich bereit, an SHT-gestütztem Peak-Shaving teilzunehmen (typisch ~10 % Rabatt). 
+    Klug selektiv aktiviert (wenige Extremstunden) übersteigen Markterlöse die Kompensation – **robuster Business Case**.
+    <br /><br />
+    <LinkButton href="/executive-summary/" variant="secondary" icon="open-book">Kurzfassung lesen</LinkButton>
+  </Card>
+
+  <Card title="Fokus & Methode" icon="magnifier">
+    Survey (N=372) zu Teilnahme & Vergütung + techno-ökonomische Simulation (JASM-Profile × TRE-Preise 2024) + 
+    Selbstfinanzierungs-Modell mit Teilnahme-Cap.
+  </Card>
+
+  <Card title="Schlüsselbefunde" icon="information">
+    Medianforderung ~10 % Rabatt (Waschmaschine ~19 %), **Geschirrspüler ideal**, Smart-Plug-Akzeptanz hoch. 
+    Pro Event sind Erlöse >> Kompensation (Top-TRE-Tage 2024).
+  </Card>
+
+  <Card title="Was kommt als Nächstes?" icon="rocket">
+    **Interaktiver, KI-gestützter Guide** (auf Umfragedaten) – Funktionsweise & gesellschaftlicher Nutzen von VPPs veranschaulichen.
+    <br /><br />
+    <LinkButton href="/guide/" icon="bot" variant="secondary">Zum Guide (Beta)</LinkButton>
+  </Card>
 </CardGrid>
