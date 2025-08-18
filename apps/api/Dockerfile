@@ -9,9 +9,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # 2) App-Code
 COPY apps/api/app ./app
 
-# 3) powere-Paket ins Image bringen & installieren
-COPY python /app/python
-RUN pip install --no-cache-dir -e /app/python
+# 3) API-Code + ai_guide
+COPY ai_guide ./ai_guide
+
 
 # 4) Laufzeit-Config: Datenwurzel (per Volume mounten, siehe Compose)
 ENV DATA_ROOT=/app/data
