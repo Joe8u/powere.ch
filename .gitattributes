@@ -1,3 +1,4 @@
 data/market/processed/**/regelenergie/*.csv filter=lfs diff=lfs merge=lfs -text
 data/market/raw/**/*.csv filter=lfs diff=lfs merge=lfs -text
 steps/step01_raw_data/market/raw/regelenergie/mfrR/2024/*.csv filter=lfs diff=lfs merge=lfs -text
+steps/step01_raw_data/market/raw/regelenergie/mfrR/**/*.csv filter=lfs diff=lfs merge=lfs -text
