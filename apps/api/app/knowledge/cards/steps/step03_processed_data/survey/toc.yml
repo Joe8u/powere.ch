@@ -1,0 +1,6 @@
+id: "steps/step03_processed_data/survey"
+doc_type: "toc"
+title: "Survey – Processed (Index & Schemas)"
+lang: "de"
+children:
+  - "steps/step03_processed_data/survey/processed_files"

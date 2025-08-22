@@ -1,0 +1,16 @@
+id: "steps/step03_processed_data/market/regelenergie/schema_monthly"
+doc_type: "doc"
+title: "Schema: TRE-Aggregation je 15-min (Monat)"
+lang: "de"
+body: |
+  **Primärpfad:** `data/market/processed/regelenergie/<YYYY-MM>.csv`
+  **Mirror (Snapshot):** `steps/step03_processed_data/market/regelenergie/<YYYY-MM>.csv`
+  **Quelle:** Step-02 `preprocess_tertiary_regulation.py`
+
+  • **Inhalt:** nur Intervalle mit **tatsächlich aktivierten** Mengen (called_mw > 0).
+  • **Spalten:**
+    - `timestamp` — Beginn des 15-min-Intervalls (naiv, lokal interpretiert)
+    - `total_called_mw` — Summe der aktivierten Leistung (MW)
+    - `avg_price_eur_mwh` — **mengen-gewichteter** Preis (EUR/MWh)
+
+  • **Bemerkung:** Es gibt keine lückenlose Zeitreihe pro Monat; nur Aktivierungen werden geschrieben.

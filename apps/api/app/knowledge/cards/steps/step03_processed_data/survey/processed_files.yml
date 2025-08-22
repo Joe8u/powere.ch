@@ -1,0 +1,56 @@
+id: "steps/step03_processed_data/survey/processed_files"
+doc_type: "doc"
+title: "Survey – Verarbeitete Dateien (Q1–Q15)"
+lang: "de"
+body: |
+  **Pfad (primär):** `data/survey/processed/*.csv`  
+  **Quelle:** Step-02 Preprocess-Skripte (je Frage). IDs sind bereinigt (String, keine `.0`-Artefakte).
+
+  • `question_1_age.csv`
+    - `respondent_id` (string), `age` (Int, Jahre)
+
+  • `question_2_gender.csv`
+    - `respondent_id`, `gender` (string, original/normalisiert)
+
+  • `question_3_household_size.csv`
+    - `respondent_id`, `household_size` (Int)
+
+  • `question_4_accommodation.csv`
+    - `respondent_id`, `accommodation_type` ∈ {Wohnung (Eigentum), Wohnung (Miete), Haus (Miete), Haus (Eigentum)} | <NA>
+
+  • `question_5_electricity.csv`
+    - `respondent_id`, `electricity_type` ∈ {Ökostrom…, Konventionellen…, Mischung…, Weiss nicht}
+
+  • `question_6_challenges.csv`
+    - `respondent_id`, `challenge_text` (string | <NA>)
+
+  • `question_7_consequence.csv`
+    - `respondent_id`, `consequence` (string | <NA>)
+
+  • `question_8_importance_wide.csv`
+    - `respondent_id`, sechs Gerätespalten (Int64 1–5):
+      {Geschirrspüler, Backofen und Herd, Fernseher und Entertainment-Systeme, Bürogeräte, Waschmaschine, Staubsauger}
+
+  • `question_9_nonuse_wide.csv`
+    - `respondent_id`, sechs Gerätespalten (bereinigte Strings, Wide-Format der Q9-Antworten)
+
+  • `question_10_incentive_wide.csv`
+    - `respondent_id`, je Gerät zwei Spalten: `<Gerät>_choice` (string), `<Gerät>_pct` (Int64 % oder <NA>)
+
+  • `question_11_notify_optin.csv`
+    - `respondent_id`, `notify_optin` ∈ {Ja, Nein, Weiss nicht}
+
+  • `question_12_smartplug.csv`
+    - `respondent_id`, `q12_smartplug` ∈ {Ja, Nein, …}
+
+  • `question_13_income.csv`
+    - `respondent_id`, `q13_income` (Label), numerische Grenzen:
+      `income_min_chf` (Int64), `income_max_chf` (Int64), `income_mid_chf` (Int64)
+
+  • `question_14_education.csv`
+    - `respondent_id`, `q14_education` (kanonische Kategorien)
+
+  • `question_15_party.csv`
+    - `respondent_id`, `q15_party` (string; „Keine Angabe“ möglich)
+
+  **Hinweis:** Diese Dateien sind die direkte Basis für die Survey-Loader in Step 04.

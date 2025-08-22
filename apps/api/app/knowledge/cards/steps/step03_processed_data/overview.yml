@@ -1,0 +1,27 @@
+id: "steps/step03_processed_data/overview"
+doc_type: "doc"
+title: "Was ist Step 03?"
+lang: "de"
+body: |
+  Step 03 dokumentiert die **fertig aufbereiteten Datenartefakte** (processed),
+  die von den Dataloaders (Step 04) konsumiert werden. Ziel: Nachvollziehbarkeit,
+  stabile Schemas & einfache Referenz für Reviews.
+
+  • Primäre Ablageorte:
+    - `data/lastprofile/processed/<YEAR>/…`
+    - `data/market/processed/regelenergie/<YYYY-MM>.csv`
+    - `data/survey/processed/*.csv`
+
+  • Optionale Spiegelung (Snapshot):
+    - Für mFRR/TRE werden die Monatsdateien zusätzlich nach
+      `steps/step03_processed_data/market/regelenergie/<YYYY-MM>.csv` gespiegelt
+      (siehe Step-02: `preprocess_tertiary_regulation.py`).
+    - Lastprofile & Survey liegen derzeit in `data/.../processed` (ohne Mirror).
+      Die Schemas sind hier dokumentiert, damit der Guide sie erklären kann.
+
+  • Bezug zu Dataloaders:
+    - `tertiary_regulation_loader.py` nutzt *primär* `data/market/processed/regelenergie`,
+      und fällt auf den Step-03-Mirror zurück, falls nötig.
+    - Lastprofile & Survey-Loader lesen direkt aus `data/.../processed`.
+
+  Siehe Unterkapitel für die jeweiligen Schemas.

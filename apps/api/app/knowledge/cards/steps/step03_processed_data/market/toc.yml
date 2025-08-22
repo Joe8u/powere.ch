@@ -1,0 +1,6 @@
+id: "steps/step03_processed_data/market"
+doc_type: "toc"
+title: "Market – Processed (Schemas)"
+lang: "de"
+children:
+  - "steps/step03_processed_data/market/regelenergie"

@@ -1,0 +1,9 @@
+id: "steps/step03_processed_data"
+doc_type: "toc"
+title: "Step 03 – Processed Data (Snapshot & Schemas)"
+lang: "de"
+children:
+  - "steps/step03_processed_data/overview"
+  - "steps/step03_processed_data/lastprofile"
+  - "steps/step03_processed_data/market"
+  - "steps/step03_processed_data/survey"

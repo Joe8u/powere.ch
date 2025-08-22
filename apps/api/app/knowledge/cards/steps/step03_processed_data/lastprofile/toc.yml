@@ -1,0 +1,6 @@
+id: "steps/step03_processed_data/lastprofile"
+doc_type: "toc"
+title: "Lastprofile – Processed (Schemas)"
+lang: "de"
+children:
+  - "steps/step03_processed_data/lastprofile/monthly_2024"

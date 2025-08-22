@@ -1,0 +1,6 @@
+id: "steps/step03_processed_data/market/regelenergie"
+doc_type: "toc"
+title: "Regelenergie (mFRR/TRE) – Monatsdateien"
+lang: "de"
+children:
+  - "steps/step03_processed_data/market/regelenergie/schema_monthly"
