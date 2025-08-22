@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Union
 from fastapi import APIRouter, Body, HTTPException, Query
 from pydantic import BaseModel
 import logging
@@ -35,7 +35,7 @@ def ingest(docs: List[IngestDoc] = Body(..., min_items=1)):
         logging.exception("embedding_failed")
         raise HTTPException(status_code=502, detail=f"embedding_failed: {e}")
 
-    ids: list[str | int] = []
+    ids: List[Union[str, int]] = []
     payloads: list[dict[str, Any]] = []
 
     for d, vec in zip(docs, vectors):
