@@ -1,0 +1,100 @@
+id: "code:steps/step02_preprocessing/survey/preprocess_q13_income.py#main"
+doc_type: "code_unit"
+lang: "de"
+title: "Survey Q13: Haushaltsnettoeinkommen – Parsing von Kategorien zu Zahlenintervallen"
+step: "step02_preprocessing"
+module: "steps/step02_preprocessing/survey/preprocess_q13_income.py"
+path: "steps/step02_preprocessing/survey/preprocess_q13_income.py"
+repo_relpath: "steps/step02_preprocessing/survey/preprocess_q13_income.py"
+tags: ["preprocessing","survey","csv","regex","binning","int-intervalle"]
+
+summary: >
+  Extrahiert Q13 („Wie hoch ist Ihr monatliches Haushaltsnettoeinkommen?“) aus dem Survey-Export,
+  bereinigt Label und leitet numerische Intervalle (min/max) sowie einen Intervallmittelwert (mid) ab.
+  Offene Ränder (Unter/Über) werden als 0..X bzw. X..None modelliert.
+
+functions:
+  - "main()"
+  - "preprocess_q13_income(infile: Path, outfile: Path) -> None"
+  - "project_root() -> Path"
+  - "_read_csv_any_encoding(path) -> pd.DataFrame"
+  - "_find_q13_col(columns) -> str"
+  - "_clean_income_label(x) -> str"
+  - "_to_int(num_str) -> int | None"
+  - "_bounds_for(label) -> tuple[int | None, int | None, int | None]"
+
+cli:
+  example: |
+    # aus dem Repo-Root
+    python -m steps.step02_preprocessing.survey.preprocess_q13_income
+
+    # mit Pfaden
+    python -m steps.step02_preprocessing.survey.preprocess_q13_income \
+      --infile "data/survey/raw/Energieverbrauch und Teilnahmebereitschaft an Demand-Response-Programmen in Haushalten.csv" \
+      --outfile "data/survey/processed/question_13_income.csv"
+
+inputs:
+  raw_csv: "data/survey/raw/Energieverbrauch und Teilnahmebereitschaft an Demand-Response-Programmen in Haushalten.csv"
+  header_usage: "header=0, skiprows=[1] (SurveyMonkey: zweite Kopfzeile überspringen)"
+  column_detection: "Substring 'haushaltsnettoeinkommen' (case-insensitive)."
+  id_column: "respondent_id (Pflicht)"
+
+processing:
+  - "Label-Bereinigung: leere/NA-ähnliche Werte -> 'Keine Angabe'."
+  - "Regex-Mapping in _bounds_for():"
+  - " • 'Unter X CHF'  -> (min=0, max=X, mid=None)"
+  - " • 'Über X CHF'   -> (min=X, max=None, mid=None)"
+  - " • 'A - B CHF'    -> (min=A, max=B, mid=(A+B)/2)"
+  - "Zahlenparser entfernt Punkt/Apostroph/Spaces, z. B. '7.001' -> 7001."
+  - "Ausgabe-Dtypen: Int64 (nullable) für min/max/mid."
+
+outputs:
+  processed_csv: "data/survey/processed/question_13_income.csv"
+  schema_out: |
+    respondent_id (string)
+    q13_income (string; bereinigtes Label oder 'Keine Angabe')
+    income_min_chf (Int64; nullable)
+    income_max_chf (Int64; nullable)
+    income_mid_chf (Int64; nullable)
+
+edge_cases:
+  - "Varianten mit Tausendertrennzeichen (., '), Spaces → werden entfernt."
+  - "Offene Ränder: 'Unter …'/'Über …' liefern nur eine Intervallgrenze; mid bleibt NA."
+  - "Nicht gematchte/unerwartete Texte -> alle Grenzen NA (Label bleibt)."
+  - "Encoding-Fallback: UTF-8 → Latin-1."
+
+notes:
+  - "Optional robuster machen: zusätzlich 'ueber' als Alternative zu 'über' erkennen; ebenso 'unter chf 3'000' (CHF vor Zahl)."
+  - "Grenzdefinitionen sind inklusiv wie im Docstring beschrieben (z. B. 'Über 10.000' -> min=10000)."
+
+downstream:
+  - "Segmentierungen nach Einkommensband in Auswertungen/Dashboards."
+  - "Kovariate für Teilnahme-/Akzeptanzmodelle (step06 Flex-Modelle)."
+
+router_hints:
+  intent_category: "erklaerung+code"
+  good_for_questions:
+    - "Wie werden Einkommensklassen numerisch abgebildet?"
+    - "Wie wird der Mittelwert je Intervall berechnet?"
+    - "Wie geht der Parser mit 'Unter/Über' um?"
+
+links:
+  server_path: "/srv/repos/powere.ch/steps/step02_preprocessing/survey/preprocess_q13_income.py"
+  repo_web_url: "https://github.com/Joe8u/powere.ch/blob/main/steps/step02_preprocessing/survey/preprocess_q13_income.py"
+
+embed_fields:
+  - "title"
+  - "summary"
+  - "processing"
+  - "inputs"
+  - "outputs"
+  - "edge_cases"
+  - "cli"
+  - "downstream"
+  - "body"
+
+body: |
+  # Parsing-Details
+  - Die Erkennung der Q13-Spalte erfolgt über die Teilzeichenkette 'haushaltsnettoeinkommen' (case-insensitive).
+  - Intervallgrenzen werden aus Textmustern extrahiert; für offene Ränder bleibt `mid` undefiniert.
+  - Zahlenparser `_to_int` entfernt Nicht-Ziffern, um '3.000', '3'000' etc. robust zu verarbeiten.

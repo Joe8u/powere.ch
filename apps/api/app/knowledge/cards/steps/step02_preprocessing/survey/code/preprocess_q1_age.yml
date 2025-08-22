@@ -1,0 +1,87 @@
+id: "code:steps/step02_preprocessing/survey/preprocess_q1_age.py#main"
+doc_type: "code_unit"
+lang: "de"
+title: "Survey Q1 (Alter): Normalisieren & Export"
+step: "step02_preprocessing"
+module: "steps/step02_preprocessing/survey/preprocess_q1_age.py"
+path: "steps/step02_preprocessing/survey/preprocess_q1_age.py"
+repo_relpath: "steps/step02_preprocessing/survey/preprocess_q1_age.py"
+tags: ["preprocessing","survey","demografie","alter","csv","normalisierung"]
+
+summary: >
+  Liest das SurveyMonkey-CSV, extrahiert `respondent_id` und `age`, normalisiert
+  Sonderfälle (z. B. „unter 18“→17, „über 95“→96), parst Ziffern robust
+  (Header-Variante, Encoding-Fallback, doppelte Kopfzeile) und schreibt
+  `data/survey/processed/question_1_age.csv`.
+
+functions:
+  - "main()"
+  - "preprocess(infile: Path, outfile: Path) -> None"
+  - "read_raw_csv(path: Path) -> pd.DataFrame"
+  - "find_col_by_names(columns, candidates) -> Optional[str]"
+
+cli:
+  example: |
+    # Standardpfade (aus Repo-Root):
+    python -m steps.step02_preprocessing.survey.preprocess_q1_age
+    # mit expliziten Pfaden:
+    python -m steps.step02_preprocessing.survey.preprocess_q1_age \
+      --infile "data/survey/raw/Energieverbrauch und Teilnahmebereitschaft an Demand-Response-Programmen in Haushalten.csv" \
+      --outfile "data/survey/processed/question_1_age.csv"
+
+inputs:
+  raw_csv: "data/survey/raw/Energieverbrauch und Teilnahmebereitschaft an Demand-Response-Programmen in Haushalten.csv"
+  column_detection:
+    respondent_id_candidates: ["respondent_id","Respondent ID","respondent id"]
+    age_candidates: ["Wie alt sind Sie?","Wie alt sind Sie?*","Age","Alter"]
+  header_note: "SurveyMonkey-CSV: zweite Header-Zeile wird via skiprows=[1] übersprungen"
+  encoding_fallback: ["utf-8","latin-1"]
+
+processing:
+  - "Spaltenerkennung tolerant (exakt → normalisiert)."
+  - "Altersfeld → String normalisieren; Sonderfälle mappen (unter 18→17, über 95→96, <18/>95 etc.)."
+  - "Erste 1–3-stellige Zahl extrahieren; to_numeric (coerce)."
+  - "Ausgabe als UTF-8 CSV."
+
+outputs:
+  processed_csv: "data/survey/processed/question_1_age.csv"
+  schema_out: |
+    respondent_id (string)
+    age (int|float; NaN falls nicht parsbar)
+
+edge_cases:
+  - "Fehlende Spaltennamen (verschiedene Lokalisierungen) → Kandidatenliste + Normalisierung greift."
+  - "Doppelte Kopfzeile in SurveyMonkey-Export → skiprows=[1]."
+  - "Uneinheitliches Encoding → Fallback latin-1."
+  - "Freitext im Altersfeld → erste Zahl wird extrahiert; Rest verworfen."
+  - "Keine Inputdatei → sauberer Abbruch mit Fehlercode."
+
+router_hints:
+  intent_category: "erklaerung+code"
+  good_for_questions:
+    - "Wie wird aus Textantworten eine Alterszahl extrahiert?"
+    - "Welche Sonderfälle werden bei Alter abgebildet?"
+    - "Was passiert, wenn Spaltennamen variieren?"
+    - "Wo liegt die erzeugte Datei und wie sieht das Schema aus?"
+
+links:
+  server_path: "/srv/repos/powere.ch/steps/step02_preprocessing/survey/preprocess_q1_age.py"
+  repo_web_url: "https://github.com/Joe8u/powere.ch/blob/main/steps/step02_preprocessing/survey/preprocess_q1_age.py"
+
+embed_fields:
+  - "title"
+  - "summary"
+  - "processing"
+  - "inputs"
+  - "outputs"
+  - "edge_cases"
+  - "cli"
+  - "body"
+
+body: |
+  # Notizen zur Wiederverwendung
+  - Die Helper `find_col_by_names` erlauben robuste Spaltenerkennung für weitere Qx-Jobs.
+  - Für zusätzliche Demografie-Fragen (z. B. Geschlecht, Bildung) kann diese Struktur 1:1 kopiert werden:
+    * tolerant Spalten finden → normalisieren → in `data/survey/processed/` persistieren.
+  - Downstream: Step-06/Survey-Preparer (`a_survey_data_preparer.py`) liest später
+    bereits normalisierte Q-Outputs (z. B. für Incentives/Dauern).

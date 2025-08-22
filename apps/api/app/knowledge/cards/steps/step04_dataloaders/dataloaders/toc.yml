@@ -1,0 +1,10 @@
+id: "steps/step04_dataloaders/dataloaders"
+doc_type: "toc"
+title: "Step 04 – Dataloaders (Übersicht)"
+lang: "de"
+children:
+  - "toc:steps/step04_dataloaders/dataloaders/lastprofile"
+  - "toc:steps/step04_dataloaders/dataloaders/market"
+  - "toc:steps/step04_dataloaders/dataloaders/survey"
+  # Optional: zusätzlich direkt eine Datei auf der Top-Ebene verlinken
+  - "code:steps/step04_dataloaders/dataloaders/io.py#module"

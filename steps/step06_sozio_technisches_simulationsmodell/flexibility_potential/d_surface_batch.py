@@ -1,4 +1,3 @@
-
 # python -m steps.step06_sozio_technisches_simulationsmodell.flexibility_potential.d_surface_batch
 # steps/step06_sozio_technisches_simulationsmodell/flexibility_potential/d_surface_batch.py
 from __future__ import annotations

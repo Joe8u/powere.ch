@@ -1,0 +1,11 @@
+id: "toc:steps/step02_preprocessing"
+title: "Step 02 – Preprocessing"
+doc_type: "toc"
+lang: "de"
+children:
+  - "explainer:steps/step02_preprocessing/overview"
+  - "explainer:steps/step02_preprocessing/policies_time_units"
+  - "explainer:steps/step02_preprocessing/data_lineage"
+  - "toc:steps/step02_preprocessing/lastprofile"
+  - "toc:steps/step02_preprocessing/market/regelenergie"
+  - "toc:steps/step02_preprocessing/survey"

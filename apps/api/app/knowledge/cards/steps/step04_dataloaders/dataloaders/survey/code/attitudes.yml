@@ -1,0 +1,92 @@
+id: "code:steps/step04_dataloaders/dataloaders/survey/attitudes.py#module"
+doc_type: "code_unit"
+lang: "de"
+title: "Dataloader: Survey-Haltungen (Q6/Q7) – challenges & consequence"
+step: "step04_dataloaders"
+module: "steps/step04_dataloaders/dataloaders/survey/attitudes.py"
+path: "steps/step04_dataloaders/dataloaders/survey/attitudes.py"
+repo_relpath: "steps/step04_dataloaders/dataloaders/survey/attitudes.py"
+tags: ["dataloader","survey","attitudes","q6","q7","processed-data"]
+
+summary: >
+  Lädt die in Step 02 vorverarbeiteten Survey-Dateien zu Einstellungen/Haltungen:
+  Q6 (Freitext „Herausforderungen“) und Q7 („problematische Konsequenzen“).
+  Nutzt `DATA_ROOT/data/survey/processed`, bereinigt `respondent_id` (u. a. Excel-„.0“-Artefakt),
+  und liefert DataFrames als bequeme Loader (einzeln und gemeinsam).
+
+storage_layout:
+  processed_dir: "data/survey/processed"
+  files:
+    challenges: "question_6_challenges.csv"   # Spalten: respondent_id, challenge_text
+    consequence: "question_7_consequence.csv" # Spalten: respondent_id, consequence
+  upstream: "steps/step02_preprocessing/survey/* (Q6/Q7 Preprocess-Skripte)"
+
+functions:
+  - name: "_read_csv_safe(path: Path) -> pd.DataFrame"
+    desc: >
+      Robustes Einlesen (UTF-8, Fallback-Handling über Fehlerpfad).
+      Trim & Normalisierung von respondent_id:
+      entfernt '...\\.0', setzt leere/'nan' auf NA und droppt fehlende IDs.
+      Gibt bei fehlender Datei ein leeres DataFrame zurück (mit Warnung).
+  - name: "load_attitudes() -> dict[str, pd.DataFrame]"
+    desc: "Lädt beide Frames als Dict: {'challenges': df_q6, 'consequence': df_q7}."
+  - name: "load_challenges() -> pd.DataFrame"
+    desc: "Direktlader für Q6 (challenge_text)."
+  - name: "load_consequence() -> pd.DataFrame"
+    desc: "Direktlader für Q7 (consequence)."
+
+io_contracts:
+  inputs:
+    - "PROCESSED_DIR/question_6_challenges.csv"
+    - "PROCESSED_DIR/question_7_consequence.csv"
+  outputs: "pd.DataFrame je Frage; Strings als dtype=str (nullable), Index bleibt RangeIndex."
+  id_normalization: >
+    'respondent_id' wird als String behandelt, '...\\.0' entfernt,
+    leere/\"nan\" entfernt (Zeilen ohne ID werden gedroppt).
+  error_handling:
+    - "Fehlende Datei: Warnung und leeres DataFrame."
+    - "Fehlende 'respondent_id'-Spalte: Warnung und unveränderter Frame."
+  encoding: "Liest mit UTF-8; Upstream-Preprocessing garantiert konsistente Kodierung."
+
+usage:
+  examples: |
+    from steps.step04_dataloaders.dataloaders.survey.attitudes import (
+        load_attitudes, load_challenges, load_consequence
+    )
+
+    dfs = load_attitudes()
+    q6 = dfs["challenges"]      # respondent_id, challenge_text
+    q7 = dfs["consequence"]     # respondent_id, consequence
+
+    # Einzel-Loader
+    q6 = load_challenges()
+    q7 = load_consequence()
+
+    # Merge mit weiteren Survey-Daten (z. B. Demografie)
+    # from steps.step04_dataloaders.dataloaders.survey.demographics import load_demographics  # beispielhaft
+    # demo = load_demographics()
+    # merged = q6.merge(q7, on="respondent_id", how="outer") \
+    #            .merge(demo, on="respondent_id", how="left")
+
+edge_cases:
+  - "CSV fehlt: Funktion liefert leeren Frame; Aufrufer sollte auf .empty prüfen."
+  - "Excel-Artefakte in IDs (z. B. '12345.0') werden entfernt."
+  - "Leere/Whitespace/'nan' IDs werden gedroppt, um fehlerhafte Joins zu vermeiden."
+  - "Falls 'respondent_id' fehlt, wird nur gewarnt (kein Abbruch) – upsteam prüfen."
+
+implementation_notes:
+  - "PROCESSED_DIR = DATA_ROOT / 'survey' / 'processed' (DATA_ROOT kommt aus dataloaders/io.py)."
+  - "Kein TZ-Handling nötig; reine tabellarische Survey-Antworten."
+  - "Rückgabetypen sind bewusst simpel (keine Indizes gesetzt), damit Joins auf respondent_id unkompliziert sind."
+
+links:
+  repo_web_url: "https://github.com/Joe8u/powere.ch/blob/main/steps/step04_dataloaders/dataloaders/survey/attitudes.py"
+
+embed_fields:
+  - "title"
+  - "summary"
+  - "storage_layout"
+  - "functions"
+  - "usage"
+  - "edge_cases"
+  - "implementation_notes"

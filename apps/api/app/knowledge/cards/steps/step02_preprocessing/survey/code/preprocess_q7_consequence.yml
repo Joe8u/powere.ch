@@ -1,0 +1,92 @@
+id: "code:steps/step02_preprocessing/survey/preprocess_q7_consequence.py#main"
+doc_type: "code_unit"
+lang: "de"
+title: "Survey Q7: problematische Konsequenzen – normalisieren & exportieren"
+step: "step02_preprocessing"
+module: "steps/step02_preprocessing/survey/preprocess_q7_consequence.py"
+path: "steps/step02_preprocessing/survey/preprocess_q7_consequence.py"
+repo_relpath: "steps/step02_preprocessing/survey/preprocess_q7_consequence.py"
+tags: ["preprocessing","survey","csv","normalization"]
+
+summary: >
+  Liest das Survey-CSV (SurveyMonkey-Format), findet respondent_id und die Q7-Spalte
+  (exakte Kandidaten + fuzzy 'konsequenzen' [+ 'problematisch']), trimmt Werte, wandelt
+  leere Platzhalter in NA und schreibt die Auswahl nach
+  `data/survey/processed/question_7_consequence.csv`.
+
+functions:
+  - "main()"
+  - "preprocess(infile: Path, outfile: Path) -> None"
+  - "project_root() -> Path"
+  - "read_raw_csv(path: Path) -> pd.DataFrame"
+  - "find_col_by_names(columns, candidates)"
+  - "find_col_contains(columns, *tokens)"
+  - "clean_choice(val)"
+
+cli:
+  example: |
+    # aus dem Repo-Root
+    python -m steps.step02_preprocessing.survey.preprocess_q7_consequence
+
+    # mit Pfaden
+    python -m steps.step02_preprocessing.survey.preprocess_q7_consequence \
+      --infile "data/survey/raw/Energieverbrauch und Teilnahmebereitschaft an Demand-Response-Programmen in Haushalten.csv" \
+      --outfile "data/survey/processed/question_7_consequence.csv"
+
+inputs:
+  raw_csv: "data/survey/raw/Energieverbrauch und Teilnahmebereitschaft an Demand-Response-Programmen in Haushalten.csv"
+  column_detection:
+    respondent_id_candidates: ["respondent_id","Respondent ID","respondent id"]
+    q7_candidates:
+      - "Welche der folgenden Konsequenzen der zunehmenden Einspeisung von erneuerbaren Energien ist aus Ihrer Sicht problematisch? (Nur eine Antwort möglich)?"
+      - "Welche der folgenden Konsequenzen der zunehmenden Einspeisung von erneuerbaren Energien ist aus Ihrer Sicht problematisch? (Nur eine Antwort möglich)"
+      - "Welche der folgenden Konsequenzen ist problematisch?"
+    fuzzy_tokens:
+      - ["konsequenzen","problematisch"]
+      - ["konsequenzen"]
+  header_note: "SurveyMonkey-Export: zweite Kopfzeile via skiprows=[1] überspringen."
+  encoding_fallback: ["utf-8","latin-1"]
+
+processing:
+  - "Normalisierte Spalten-Suche: exakte Kandidaten, sonst find_col_contains('konsequenzen','problematisch')."
+  - "clean_choice: Trim; Platzhalter wie nan/null/none/na/n-a/'---' → None."
+  - "Ausgabe als nullable string, damit fehlende Werte als <NA> im CSV stehen."
+
+outputs:
+  processed_csv: "data/survey/processed/question_7_consequence.csv"
+  schema_out: |
+    respondent_id (string)
+    consequence (string | <NA>)
+
+edge_cases:
+  - "Q7-Spalte fehlt → KeyError mit klarer Meldung."
+  - "Nur Platzhalter oder leere Antworten → <NA>."
+  - "Uneinheitliche Spaltennamen im Export → Fallback via fuzzy Tokens."
+
+router_hints:
+  intent_category: "erklaerung+code"
+  good_for_questions:
+    - "Wie wird die Q7-Spalte gefunden, wenn die Bezeichnung abweicht?"
+    - "Welche Werte werden als leer/NA behandelt?"
+    - "Warum bleiben Antworttexte ansonsten unverändert?"
+
+links:
+  server_path: "/srv/repos/powere.ch/steps/step02_preprocessing/survey/preprocess_q7_consequence.py"
+  repo_web_url: "https://github.com/Joe8u/powere.ch/blob/main/steps/step02_preprocessing/survey/preprocess_q7_consequence.py"
+
+embed_fields:
+  - "title"
+  - "summary"
+  - "processing"
+  - "inputs"
+  - "outputs"
+  - "edge_cases"
+  - "cli"
+  - "body"
+
+body: |
+  # Hinweise
+  - `_norm_key` vereinheitlicht Spaltennamen (lower, Sonderzeichen/Leerzeichen entfernen),
+    damit Exporte mit minimal anderen Bezeichnungen erkannt werden.
+  - `EMPTY_PAT` deckt typische leere/NA-Einträge ab; bei neuen Mustern hier ergänzen.
+  - Die Antwort `consequence` wird nicht in Kategorien gemappt, sondern als Text beibehalten.

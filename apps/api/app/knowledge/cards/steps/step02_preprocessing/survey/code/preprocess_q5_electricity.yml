@@ -1,0 +1,101 @@
+id: "code:steps/step02_preprocessing/survey/preprocess_q5_electricity.py#main"
+doc_type: "code_unit"
+lang: "de"
+title: "Survey Q5 (Stromart): Extraktion & Mapping auf Kanon"
+step: "step02_preprocessing"
+module: "steps/step02_preprocessing/survey/preprocess_q5_electricity.py"
+path: "steps/step02_preprocessing/survey/preprocess_q5_electricity.py"
+repo_relpath: "steps/step02_preprocessing/survey/preprocess_q5_electricity.py"
+tags: ["preprocessing","survey","strom","csv","mapping"]
+
+summary: >
+  Liest das Survey-CSV, findet 'respondent_id' und die Spalte
+  „Welche Art von Strom beziehen Sie hauptsächlich?“, mappt freie/abweichende Antworten
+  robust auf vier Kanon-Kategorien (Ökostrom, Konventionell, Mischung, Weiss nicht)
+  und schreibt `data/survey/processed/question_5_electricity.csv`.
+
+functions:
+  - "main()"
+  - "preprocess(infile: Path, outfile: Path) -> None"
+  - "project_root() -> Path"
+  - "read_raw_csv(path: Path) -> pd.DataFrame"
+  - "find_col_by_names(columns, candidates) -> Optional[str]"
+  - "_normalize_text(s: str) -> str"
+  - "normalize_electricity(val: Optional[str]) -> Optional[str]"
+
+cli:
+  example: |
+    # aus dem Repo-Root:
+    python -m steps.step02_preprocessing.survey.preprocess_q5_electricity
+
+    # mit expliziten Pfaden:
+    python -m steps.step02_preprocessing.survey.preprocess_q5_electricity \
+      --infile "data/survey/raw/Energieverbrauch und Teilnahmebereitschaft an Demand-Response-Programmen in Haushalten.csv" \
+      --outfile "data/survey/processed/question_5_electricity.csv"
+
+inputs:
+  raw_csv: "data/survey/raw/Energieverbrauch und Teilnahmebereitschaft an Demand-Response-Programmen in Haushalten.csv"
+  column_detection:
+    respondent_id_candidates: ["respondent_id","Respondent ID","respondent id"]
+    q5_candidates:
+      - "Welche Art von Strom beziehen Sie hauptsächlich?"
+      - "Strom beziehen"
+      - "Electricity type"
+  header_note: "SurveyMonkey-Exports: zweite Headerzeile via skiprows=[1] überspringen."
+  encoding_fallback: ["utf-8","latin-1"]
+
+processing:
+  - "Fragenspaltenerkennung via tolerantem Matching (find_col_by_names)."
+  - "_normalize_text entfernt Akzente, setzt ß→ss, normalisiert Whitespace, lower."
+  - "normalize_electricity mappt Heuristiken:"
+  - "  • Ökostrom: Schlüsselwörter wie oekostrom/ökostrom, erneuerbar, wasser, sonne, wind."
+  - "  • Konventionell: konventionell, kernenergie, fossil, atom."
+  - "  • Mischung: 'misch'/'mix' hat Vorrang, auch bei gleichzeitigem Eco/Konv-Treffer."
+  - "  • 'Weiss nicht' erkennt diverse Schreibweisen (weiß/weis/k.a./don't know)."
+  - "Unklare Fälle → None (<NA> im CSV)."
+
+outputs:
+  processed_csv: "data/survey/processed/question_5_electricity.csv"
+  schema_out: |
+    respondent_id (string)
+    electricity_type (string | <NA>)
+  canon_categories:
+    - "Ökostrom (aus erneuerbaren Energien wie Wasser, Sonne, Wind)"
+    - "Konventionellen Strom (Kernenergie und fossilen Brennstoffen)"
+    - "Eine Mischung aus konventionellem Strom und Ökostrom"
+    - "Weiss nicht"
+
+edge_cases:
+  - "Antwort enthält sowohl Öko- als auch Konv.-Begriffe → als Mischung klassifiziert."
+  - "Nur unscharfe/kurze Tokens (z. B. 'k.a.', 'wn') → 'Weiss nicht'."
+  - "Nicht mappbare Freitexte bleiben <NA>."
+  - "Inputdatei fehlt → Exit mit Fehlercode 1 und Hinweis."
+
+router_hints:
+  intent_category: "erklaerung+code"
+  good_for_questions:
+    - "Wie unterscheidet der Mapper Ökostrom, Konventionell und Mischung?"
+    - "Welche 'Weiss nicht'-Synonyme werden erkannt?"
+    - "Warum werden Akzente entfernt und ß→ss ersetzt?"
+
+links:
+  server_path: "/srv/repos/powere.ch/steps/step02_preprocessing/survey/preprocess_q5_electricity.py"
+  repo_web_url: "https://github.com/Joe8u/powere.ch/blob/main/steps/step02_preprocessing/survey/preprocess_q5_electricity.py"
+
+embed_fields:
+  - "title"
+  - "summary"
+  - "processing"
+  - "inputs"
+  - "outputs"
+  - "edge_cases"
+  - "cli"
+  - "body"
+
+body: |
+  # Hinweise
+  - Die vier Kanon-Kategorien sind im Code als Konstanten (CANON_*) zentral definiert.
+  - Bei zukünftigen Surveys mit anderen Antworttexten kann die Heuristik in
+    `normalize_electricity` leicht erweitert werden (weitere Synonyme/Sprachen).
+  - Für streng deterministische Mappings kann alternativ eine Lookup-CSV verwendet
+    und im Preprocessing eingelesen werden.

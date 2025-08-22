@@ -1,0 +1,18 @@
+id: "steps/step01_raw_data/survey/surveymonkey_export"
+doc_type: "doc"
+title: "SurveyMonkey-Export (Rohdatei)"
+lang: "de"
+summary: >
+  Originale Umfrageexport-Datei, aus der Step02-Preprocessing-Skripte (Q1–Q15) lesen.
+  Enthält typischerweise zwei Header-Zeilen: (1) Fragetexte, (2) Antwortlabels/Spalten
+  für Matrixfragen (z. B. Geräte-Spalten bei Q8/Q9/Q10).
+files:
+  - path_hint: "data/survey/raw/Energieverbrauch und Teilnahmebereitschaft an Demand-Response-Programmen in Haushalten.csv"
+    encoding: ["utf-8", "latin-1 (Fallback)"]
+    delimiter: ","
+    header_rows: [0, 1]
+schema_notes:
+  - "Wichtige ID-Spalte: respondent_id"
+  - "Q8/Q9/Q10: zweite Headerzeile enthält die Gerätespalten (siehe Step02 Parser)."
+privacy_notes:
+  - "Interne Rohdaten; keine öffentliche Download-Quelle."

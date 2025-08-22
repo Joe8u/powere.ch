@@ -1,0 +1,25 @@
+id: "artifact:steps/step06_sozio_technisches_simulationsmodell/dr_windows/tre_ranked_days_csv"
+doc_type: "data_artifact"
+title: "Artefakt: Ranking der DR-Kandidatentage – tre_ranked_days_<slug>_<year>_top<T>_thr<THR>[_fx<FX>].csv"
+lang: "de"
+location_pattern: "data/market/processed/dr_windows/tre_ranked_days_{slug}_{year}_top{T}_thr{THR}[_fx{FX}].csv"
+tags: ["ranking","candidates","dr_days","export"]
+summary: >
+  Tagesweise Ranking-Tabelle basierend auf TRE-Peakpreisen innerhalb des Gerätefensters
+  (aus tre03). Sortiert absteigend nach max_srl_price_in_window und anschließend nach
+  count_srl_peaks_in_window.
+schema:
+  columns:
+    - "date: YYYY-MM-DD"
+    - "max_srl_price_in_window: float (CHF/kWh)"
+    - "avg_srl_price_in_window: float (CHF/kWh)"
+    - "count_srl_peaks_in_window: int"
+    - "sum_srl_prices_in_window: float"
+    - "appliance_window_duration_h: float (h)"
+    - "appliance_window_energy_sum: float"
+    - "appliance_window_energy_pct: float (%)"
+    - "appliance_window_start: HH:MM"
+    - "appliance_window_end: HH:MM"
+notes:
+  - "Aktuelle Implementierung erzeugt bei fx=None einen Dateinamen mit abschließendem Unterstrich ('..._thr<THR>_.csv'). Empfohlener Fix siehe Karte tre04 (links/body)."
+embed_fields: ["title","summary","schema","notes"]

@@ -1,0 +1,76 @@
+id: "code:steps/step06_sozio_technisches_simulationsmodell/flexibility_potential/c_flexibility_visualizer.py#generate_3d_flexibility_surface_plot"
+doc_type: "code_unit"
+title: "Flexibility Visualizer – 3D-Teilnahmefläche (Q9/Q10 → %)"
+lang: "de"
+path: "steps/step06_sozio_technisches_simulationsmodell/flexibility_potential/c_flexibility_visualizer.py"
+repo_relpath: "steps/step06_sozio_technisches_simulationsmodell/flexibility_potential/c_flexibility_visualizer.py"
+step: "step06_sozio_technisches_simulationsmodell"
+module: "flexibility_potential"
+tags: ["survey","visualization","plotly","participation","tre05","tre06"]
+summary: >
+  Erzeugt eine 3D-Surface (Plotly): X=Incentive (% der Monatskosten), Y=Event-Dauer (h, aus Q9),
+  Z=modellierte Teilnahmequote (%) basierend auf calculate_participation_metrics.
+functions:
+  - "generate_3d_flexibility_surface_plot(df_survey_flex, params: SurfaceParams) -> plotly.graph_objects.Figure|None"
+  - "_device_durations(df, device, max_h) -> np.ndarray"
+  - "SurfaceParams dataclass (Konfiguration)"
+inputs:
+  dataframe: "Output von prepare_survey_flexibility_data() (respondent_id, device, survey_max_duration_h, survey_incentive_choice, survey_incentive_pct_required)"
+parameters:
+  SurfaceParams:
+    target_appliance: "Gerät (kanonischer Name, z. B. 'Geschirrspüler')"
+    incentive_steps: "Anzahl X-Samples (Standard 11; 0..max_incentive gleichmäßig)"
+    max_incentive_pct_on_plot: "Max. Incentive auf X-Achse (Standard 50.0 %)"
+    max_event_duration_h_on_plot: "Max. Dauer auf Y-Achse (Standard 30.0 h)"
+    color_cmin: "Z-Min/Colorbar-Min (Standard 0.0)"
+    color_cmax: "Z-Max/Colorbar-Max (Standard 100.0)"
+    show: "fig.show() aufrufen (Standard False; in Headless-Servern meist False lassen)"
+    save_html_path: "Optionaler Pfad zum Speichern als interaktives HTML"
+    debug: "True → print von Dauer-/Incentive-Raster und Z-Min/Max"
+process:
+  - "Extrahiere zulässige Dauern (Q9) für das Zielgerät bis max_event_duration_h_on_plot."
+  - "Erzeuge linspace für Incentives (0..max_incentive_pct_on_plot)."
+  - "Berechne Z[i,j] = raw_participation_rate*100 für (duration_i, incentive_j) via calculate_participation_metrics."
+  - "Render Surface (Plotly, Viridis), inkl. Contour-Projektion und Achsentiteln."
+outputs:
+  figure: "plotly.graph_objects.Figure (interaktiv)"
+  saved_html: "Wenn save_html_path gesetzt → HTML-Datei mit eingebettetem Plotly (cdn)."
+edge_cases:
+  - "Keine gültigen Dauern für Gerät → return None (Warnung)."
+  - "Leere/inkonsistente Survey-Daten → Z≈0/NaN; Plot existiert, aber Aussagekraft gering."
+  - "Headless-Server: show=False nutzen; write_html funktioniert ohne Display."
+  - "Offline-Umgebung: ggf. write_html(include_plotlyjs='full') statt 'cdn' im Code verwenden."
+performance_notes:
+  - "Komplexität ~ O(#durations × #incentives × Basis-Stichprobe). Für große Samples incentive_steps klein halten (z. B. 11–21)."
+router_hints:
+  intent_category: "visualisierung+berechnung"
+  good_for_questions:
+    - "Wie verändert sich die Teilnahmequote bei mehr Anreiz?"
+    - "Welche Eventdauer liefert sprunghafte Teilnahmesteigerungen?"
+    - "Welche Caps in tre05/tre06 erklären Plateaus?"
+usage_examples:
+  - |
+    from steps.step06_sozio_technisches_simulationsmodell.flexibility_potential.a_survey_data_preparer import prepare_survey_flexibility_data
+    from steps.step06_sozio_technisches_simulationsmodell.flexibility_potential.c_flexibility_visualizer import SurfaceParams, generate_3d_flexibility_surface_plot
+
+    df = prepare_survey_flexibility_data()
+    params = SurfaceParams(target_appliance="Geschirrspüler", incentive_steps=21, max_incentive_pct_on_plot=40.0)
+    fig = generate_3d_flexibility_surface_plot(df, params)
+    if fig: fig.write_html("data/market/processed/simulation/flex_surface_dishwasher.html", include_plotlyjs="cdn")
+depends_on:
+  - "steps/step06_sozio_technisches_simulationsmodell/flexibility_potential/b_participation_calculator.py#calculate_participation_metrics"
+  - "plotly"
+links:
+  server_path: "/srv/repos/powere.ch/apps/api/app/steps/step06_sozio_technisches_simulationsmodell/flexibility_potential/c_flexibility_visualizer.py"
+  repo_relpath: "steps/step06_sozio_technisches_simulationsmodell/flexibility_potential/c_flexibility_visualizer.py"
+  repo_web_url: "https://github.com/Joe8u/powere.ch/blob/main/steps/step06_sozio_technisches_simulationsmodell/flexibility_potential/c_flexibility_visualizer.py"
+embed_fields: ["title","summary","process","inputs","parameters","outputs","edge_cases","performance_notes","usage_examples","body"]
+body: |
+  # Interpretation
+  - X-Achse: angebotene Kompensation in %-Punkten der Monatskosten.
+  - Y-Achse: maximal tolerierte Verschiebedauer (aus Q9) – nur im Survey tatsächlich vorkommende Werte.
+  - Z: modellierte Teilnahmequote in % (roh, ohne Caps aus tre05/tre06).
+
+  # Best Practices
+  - Für Präsentationen HTML speichern und in Dash/Streamlit einbetten.
+  - color_cmin/cmax auf [0,100] lassen, um Skalenvergleich zwischen Geräten zu sichern.

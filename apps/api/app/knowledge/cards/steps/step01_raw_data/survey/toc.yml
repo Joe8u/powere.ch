@@ -1,0 +1,6 @@
+id: "steps/step01_raw_data/survey"
+doc_type: "toc"
+title: "Rohdaten: Survey"
+lang: "de"
+children:
+  - "doc:steps/step01_raw_data/survey/surveymonkey_export.yml#page"

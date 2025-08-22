@@ -1,0 +1,102 @@
+id: "code:steps/step02_preprocessing/lastprofile/precompute_lastprofile_2024.py#main"
+doc_type: "code_unit"
+lang: "de"
+title: "Lastprofile 2024 vorrechnen (Interpolation 2015↔2035 → 15-min Monats-CSVs)"
+step: "step02_preprocessing"
+module: "steps/step02_preprocessing/lastprofile/precompute_lastprofile_2024.py"
+path: "steps/step02_preprocessing/lastprofile/precompute_lastprofile_2024.py"
+repo_relpath: "steps/step02_preprocessing/lastprofile/precompute_lastprofile_2024.py"
+tags: ["preprocessing","lastprofile","interpolation","zeitreihe","15min","csv"]
+
+summary: >
+  Liest Swiss-Load-Kurven (2015 & 2035), bildet Monats/Day-Type/Hour-Pivots,
+  interpoliert linear für Zieljahr (Default 2024), mappt 15-min Slots auf die Stunde
+  und summiert Gerätespalten in Survey-Kategorien. Ergebnis: 12 Monats-CSV (15-min).
+
+functions:
+  - "main() -> int"
+  - "find_repo_root(start: Path) -> Path"
+  - "month_expected_rows(year: int, month: int) -> int"
+
+cli:
+  example: |
+    python steps/step02_preprocessing/lastprofile/precompute_lastprofile_2024.py \
+      --year 2024 \
+      --infile data/lastprofile/raw/Swiss_load_curves_2015_2035_2050.csv \
+      --outdir data/lastprofile/processed/2024
+
+inputs:
+  raw_paths:
+    - "data/lastprofile/raw/Swiss_load_curves_2015_2035_2050.csv"
+  schema_in: |
+    Pflichtspalten (case-insensitive, werden zu lowercase_snake umbenannt):
+      - Year:int, Month:int, Day type:str, Time:str, Appliances:str, Power (MW):float
+    Gruppierung für Pivots: ["month","day_type","time","appliances"] → mean(power_mw)
+
+processing:
+  - "Repo-Root heuristisch finden ('.git' ODER Ordner 'apps'+'data')."
+  - "Rohdaten CSV (sep=';', UTF-8) einlesen und Spalten normalisieren."
+  - "Pivot je Jahr (2015, 2035): index=['month','day_type','time'], columns='appliances', values='power_mw'."
+  - "Lineare Interpolation: f=(year-2015)/(2035-2015). pivotY=(1-f)*pivot2015 + f*pivot2035."
+  - "Kalender für Zieljahr erzeugen: 15-min naive Timeline; mappe jeden Slot auf Time='HH:00:00'."
+  - "Merge Kalender×pivotY; Appliances in Survey-Kategorien summieren:"
+  - |
+    Mapping:
+      - Geschirrspüler ← ["Dishwasher"]
+      - Backofen und Herd ← ["Cooking"]
+      - Fernseher und Entertainment-Systeme ← ["TV","STB","DVB","Music"]
+      - Bürogeräte ← ["Computer"]
+      - Waschmaschine ← ["Washing machine"]
+  - "Monats-CSVs schreiben: data/lastprofile/processed/<year>/<year>-MM.csv."
+
+outputs:
+  processed_paths:
+    - "data/lastprofile/processed/<year>/<year>-01.csv … <year>-12.csv"
+  schema_out: |
+    Spalten: timestamp (ISO, naive), Geschirrspüler, Backofen und Herd,
+             Fernseher und Entertainment-Systeme, Bürogeräte, Waschmaschine
+    Auflösung: 15-min; erwartete Zeilen pro Monat: days×96.
+
+edge_cases:
+  - "Fehlende Pflichtspalten → Abbruch mit Fehlermeldung."
+  - "Keine Daten für 2015 oder 2035 → Abbruch (Pivot-Error)."
+  - "year außerhalb [2015,2035]: Skript extrapoliert linear (fachlich prüfen!)."
+  - "Mapping-Spalten nicht vorhanden → Kategorie wird 0.0, Warnhinweis."
+  - "Zeitzone: Timeline ist **naiv** (keine TZ/DST-Korrektur); spätere Schritte (z. B. step06) wandeln bei Bedarf nach UTC."
+  - "CSV-Dialekt: Standard `to_csv` (',' als Separator). Wenn Semikolon/Decimal benötigt, beim Aufrufer anpassen."
+
+router_hints:
+  intent_category: "erklaerung+code"
+  good_for_questions:
+    - "Wie entstehen die 2024er Lastprofile aus 2015/2035?"
+    - "Welche Gerätekanäle fließen in die Survey-Kategorien ein?"
+    - "Warum 15-min Slots, aber Hour-Mapping beim Merge?"
+    - "Wie viele Zeilen sollte ein Monatsfile haben?"
+
+links:
+  server_path: "/srv/repos/powere.ch/steps/step02_preprocessing/lastprofile/precompute_lastprofile_2024.py"
+  repo_web_url: "https://github.com/Joe8u/powere.ch/blob/main/steps/step02_preprocessing/lastprofile/precompute_lastprofile_2024.py"
+
+embed_fields:
+  - "title"
+  - "summary"
+  - "processing"
+  - "inputs"
+  - "outputs"
+  - "edge_cases"
+  - "cli"
+  - "body"
+
+body: |
+  # Annahmen & Hinweise
+  - Interpolation linear zwischen 2015 und 2035 (f=(year-2015)/20). Für 2024 ist f=0.45.
+  - Merge-Logik: 15-min-Slots werden der vollen Stunde (HH:00:00) zugeordnet; das entspricht einer
+    Stückweise-konstant Annahme innerhalb der Stunde.
+  - Die erzeugten Monatsdateien bilden die Basis für `step04_dataloaders.lastprofile.load_appliances(...)`.
+
+  # Validierung / Smoke-Test
+  - Erwartete Zeilen pro Monat: `days_in_month × 96`.
+  - Schneller Test:
+      python steps/step02_preprocessing/lastprofile/precompute_lastprofile_2024.py --year 2024
+      ls data/lastprofile/processed/2024 | wc -l  → 12
+  - Fachliche Plausibilisierung: Summen über einen Tag/Monat sollten mit der Interpolationslogik konsistent sein.

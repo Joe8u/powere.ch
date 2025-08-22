@@ -1,0 +1,76 @@
+id: "code:steps/step06_sozio_technisches_simulationsmodell/dr_windows/tre04_dr_day_ranker.py#calculate_ranking_metrics_for_days"
+doc_type: "code_unit"
+title: "tre04 – DR-Tage ranken (TRE-Peakpreise × JASM-Fenster)"
+lang: "de"
+path: "steps/step06_sozio_technisches_simulationsmodell/dr_windows/tre04_dr_day_ranker.py"
+repo_relpath: "steps/step06_sozio_technisches_simulationsmodell/dr_windows/tre04_dr_day_ranker.py"
+step: "step06_sozio_technisches_simulationsmodell"
+module: "dr_windows"
+tags: ["tre","mFRR","ranking","jasm","dr_windows","windows","candidates"]
+summary: >
+  Bewertet die in tre03 ermittelten DR-Kandidatentage. Für jeden Tag werden
+  Metriken innerhalb des Geräte-Zeitfensters berechnet (max/Ø/Σ TRE-Preis, Anzahl
+  Overlaps) und die Tage danach absteigend gerankt.
+functions:
+  - "calculate_ranking_metrics_for_days(candidate_days, srl_peak_data, appliance_windows)"
+  - "_time_diff_hours(start, end)"
+  - "main()  # CLI zum Erzeugen der Ranking-CSV"
+defaults:
+  year_default: 2024
+  top_default: 150
+  appliance_default: "Geschirrspüler"
+  threshold_default_pct: 70.0
+  tz_default: "Europe/Zurich"
+metrics:
+  - "max_srl_price_in_window: maximaler TRE-Preis (CHF/kWh) innerhalb des Gerätefensters am Tag"
+  - "avg_srl_price_in_window: Mittelwert der im Fenster liegenden TRE-Preise"
+  - "count_srl_peaks_in_window: Anzahl Peak-Zeitpunkte im Fenster"
+  - "sum_srl_prices_in_window: Summe der im Fenster liegenden Peak-Preise"
+  - "appliance_window_duration_h: Fensterbreite in Stunden"
+  - "appliance_window_energy_sum: Energiesumme im Fenster"
+  - "appliance_window_energy_pct: Fensteranteil an der Tagesenergie in %"
+inputs:
+  data_sources:
+    - "tre01: find_top_tre_price_periods(year, n_top, fx)  → Peakpreise mit Index=Timestamp, price_chf_kwh"
+    - "tre03: compute_shortest_energy_windows(...)         → Fenster je Tag (start/end/sum/pct)"
+    - "JASM: load_jasm(...) für Anzeige/Validierung (tre04 lädt es in main() zum Fensterbau)"
+  params:
+    - "year, top, appliance, threshold, fx, tz, save"
+ranking:
+  sort_order: "desc by (max_srl_price_in_window, count_srl_peaks_in_window)"
+outputs:
+  - "Liste von Tages-Records (siehe metrics) – optional als CSV exportiert"
+csv_exports:
+  filename_pattern: "data/market/processed/dr_windows/tre_ranked_days_<slug>_<year>_top<T>_thr<THR>[_fx<FX>].csv"
+depends_on:
+  - "steps/step06_sozio_technisches_simulationsmodell/dr_windows/tre01_peak_price_finder.py::find_top_tre_price_periods"
+  - "steps/step06_sozio_technisches_simulationsmodell/dr_windows/tre03_dr_day_identifier.py::compute_shortest_energy_windows"
+  - "steps/step06_sozio_technisches_simulationsmodell/dr_windows/tre03_dr_day_identifier.py::identify_dr_candidate_days"
+  - "steps/step04_dataloaders/dataloaders/lastprofile/__init__.py::load_appliances"
+edge_cases:
+  - "Keine Kandidatentage oder leere Peakdaten → leere Ergebnisliste."
+  - "Fenster über Mitternacht: end == 00:00 → als ‚bis Tagesende‘ interpretieren."
+  - "Ungültige/NaN-Preise werden ignoriert."
+router_hints:
+  intent_category: "erklärung+berechnung"
+  good_for_questions:
+    - "Nach welchen Kriterien werden DR-Tage gerankt?"
+    - "Warum ist Tag X vor Tag Y?"
+    - "Was bedeuten max/Ø/Σ/Count im Kontext des Gerätefensters?"
+embed_fields: ["title","summary","metrics","inputs","ranking","outputs","edge_cases","body"]
+body: |
+  Ablauf (High-Level):
+   1) Lade TRE-Topperioden (tre01) → Peak-Zeitpunkte mit price_chf_kwh.
+   2) Bestimme betroffene Tage und lade JASM für den Zeitraum (nur Anzeige/Validierung in main()).
+   3) Berechne Tagesfenster (tre03.compute_shortest_energy_windows) und Kandidatentage (tre03.identify_dr_candidate_days).
+   4) Für jeden Kandidatentag:
+      - Prüfe alle Peak-Zeitpunkte des Tages.
+      - Zähle Overlaps im Gerätefenster und sammle Preisstatistiken (max/avg/sum).
+      - Dauer und Energie des Gerätefensters ebenfalls reporten.
+   5) Sortiere absteigend nach (max_srl_price_in_window, count_srl_peaks_in_window).
+cli_examples:
+  - "python -m steps.step06_sozio_technisches_simulationsmodell.dr_windows.tre04_dr_day_ranker --year 2024 --top 150 --appliance 'Geschirrspüler' --threshold 70 --fx 0.97 --save"
+links:
+  repo_relpath: "steps/step06_sozio_technisches_simulationsmodell/dr_windows/tre04_dr_day_ranker.py"
+  server_path: "/srv/repos/powere.ch/steps/step06_sozio_technisches_simulationsmodell/dr_windows/tre04_dr_day_ranker.py"
+  repo_web_url: "https://github.com/Joe8u/powere.ch/blob/main/steps/step06_sozio_technisches_simulationsmodell/dr_windows/tre04_dr_day_ranker.py"

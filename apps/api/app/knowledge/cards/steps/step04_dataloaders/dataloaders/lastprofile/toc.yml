@@ -1,0 +1,6 @@
+id: "steps/step04_dataloaders/dataloaders/lastprofile"
+doc_type: "toc"
+title: "Step 04 – Dataloaders – Lastprofile"
+lang: "de"
+children:
+  - "code:steps/step04_dataloaders/dataloaders/lastprofile/io.py#module"

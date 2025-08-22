@@ -1,0 +1,25 @@
+id: "explainer:steps/step06_sozio_technisches_simulationsmodell/flexibility_potential/b_participation_calculator"
+doc_type: "explainer"
+title: "Wie wir Teilnahmequoten aus Q9/Q10 ableiten"
+lang: "de"
+audience: "Produkt/Research"
+summary: >
+  Diese Karte erklärt, wann ein Haushalt als 'nimmt teil' zählt: Er muss
+  (1) lange genug verschieben können (Q9) und (2) das angebotene Incentive
+  akzeptieren (Q10). Die resultierende Quote ist die Basis für tre05/tre06.
+key_points:
+  - "Q9 setzt die **zeitliche Hürde**: max. verschiebbare Dauer ≥ Eventdauer."
+  - "Q10 setzt die **Anreiz-Hürde**: yes_fixed ⇒ immer; yes_conditional ⇒ Angebot ≥ geforderter %-Wert."
+  - "Die Funktion liefert eine **rohe** Rate; spätere Caps (z. B. 62.9 %) kommen erst in tre05/tre06."
+  - "Gerätefilter sorgt für saubere Basispopulation (respondent_id distinct)."
+faq:
+  - q: "Warum kann raw_rate höher als die finale Rate sein?"
+    a: "tre05/tre06 begrenzen zusätzlich (z. B. Participation-Cap, Event-Caps)."
+  - q: "Was, wenn Q10 fehlt?"
+    a: "unknown_* zählt nicht als erfüllt → konservative Schätzung (kein Incentive-Match)."
+  - q: "Wie interpretiert ihr 0.0 h in Q9?"
+    a: "Das ist 'auf keinen Fall'; nur Events mit Dauer 0 würden bestehen."
+links:
+  to_code_card: "code:steps/step06_sozio_technisches_simulationsmodell/flexibility_potential/b_participation_calculator.py#calculate_participation_metrics"
+  repo_web_url: "https://github.com/Joe8u/powere.ch/blob/main/steps/step06_sozio_technisches_simulationsmodell/flexibility_potential/b_participation_calculator.py"
+embed_fields: ["title","summary","key_points","faq"]

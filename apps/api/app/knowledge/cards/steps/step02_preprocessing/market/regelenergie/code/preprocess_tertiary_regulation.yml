@@ -1,0 +1,99 @@
+id: "code:steps/step02_preprocessing/market/regelenergie/preprocess_tertiary_regulation.py#main"
+doc_type: "code_unit"
+lang: "de"
+title: "mFRR/TRE: Monats-CSV → 15-min Aggregat (Mengen & mengen-gewichteter Preis)"
+step: "step02_preprocessing"
+module: "steps/step02_preprocessing/market/regelenergie/preprocess_tertiary_regulation.py"
+path: "steps/step02_preprocessing/market/regelenergie/preprocess_tertiary_regulation.py"
+repo_relpath: "steps/step02_preprocessing/market/regelenergie/preprocess_tertiary_regulation.py"
+tags: ["preprocessing","regelenergie","mFRR","TRE","15min","aggregation","marktpreise"]
+
+summary: >
+  Liest mFRR/TRE-Monatsdateien (CSV), filtert aktivierte Abrufe (called_mw > 0)
+  und bildet je 15-Minuten-Intervall die Summenmenge sowie den
+  mengen-gewichteten Durchschnittspreis (EUR/MWh). Schreibt pro Monat eine
+  normalisierte Datei nach data/market/processed/regelenergie/YYYY-MM.csv und
+  spiegelt sie nach steps/step03_processed_data/market/regelenergie/.
+
+functions:
+  - "main()"
+  - "process_year(year: int) -> None"
+  - "_read_month(path: Path) -> pd.DataFrame"
+  - "_aggregate_quarter_hour(df: pd.DataFrame) -> pd.DataFrame"
+
+cli:
+  example: |
+    python -m steps.step02_preprocessing.market.regelenergie.preprocess_tertiary_regulation --year 2024
+
+inputs:
+  raw_dir: "data/market/raw/regelenergie/mfrR/<YEAR>/"
+  expected_filenames: "<YEAR>-MM-TRE-Ergebnis.csv"
+  required_columns: ["Ausschreibung","Von","Bis","Produkt","Angebotene Menge","Abgerufene Menge","Preis","Status"]
+  encoding_strategy: "cp1252 → latin-1 → utf-8 (Fallback)"
+  timestamp_build:
+    - "Datum aus Ausschreibung: TRE_YY_MM_DD → YYYY-MM-DD"
+    - "Zeit aus 'Von' (HH:MM), kombiniert zu Intervall-Beginn (naiv, keine TZ)"
+
+processing:
+  - "Spalten normalisieren/umbenennen; Mengen/Preis zu float (Kommas tolerieren)."
+  - "Filter: called_mw > 0, gültiger Preis ≥ 0, valider Timestamp."
+  - "Aggregation je 'timestamp':"
+  - "  total_called_mw = Σ called_mw"
+  - "  avg_price_eur_mwh = Σ(price_eur_mwh * called_mw) / Σ called_mw"
+  - "Sortiere nach timestamp und schreibe Monats-CSV."
+  - "Spiegele identische Datei nach steps/step03_processed_data/…"
+
+outputs:
+  processed_month: "data/market/processed/regelenergie/<YEAR>-<MM>.csv"
+  mirror_month: "steps/step03_processed_data/market/regelenergie/<YEAR>-<MM>.csv"
+  schema_out: |
+    timestamp (ISO, naiv)
+    total_called_mw (float)
+    avg_price_eur_mwh (float)
+
+edge_cases:
+  - "Fehlende/abweichende Spaltenbezeichnungen → tolerante Umbenennung via Regex."
+  - "Uneinheitliche Encodings → Mehrfachversuch."
+  - "Ausschreibung ohne Pattern TRE_YY_MM_DD → Zeile fällt heraus (kein Datum)."
+  - "Zeitspalte ungültig → Zeile fällt heraus."
+  - "Keine Dateien im Jahr → Warnung, kein Abbruch."
+  - "Zeitzone: Timestamps sind **naiv**; spätere Schritte (z. B. step06) konvertieren explizit zu UTC."
+
+router_hints:
+  intent_category: "erklaerung+code"
+  good_for_questions:
+    - "Wie wird der mengen-gewichtete Preis berechnet?"
+    - "Welche Filter werden auf die Rohdateien angewandt?"
+    - "Warum sind die Timestamps naiv und wo erfolgt die TZ-Konvertierung?"
+    - "Wie heißen die Output-Spalten und wie werden sie downstream genutzt?"
+
+links:
+  server_path: "/srv/repos/powere.ch/steps/step02_preprocessing/market/regelenergie/preprocess_tertiary_regulation.py"
+  repo_web_url: "https://github.com/Joe8u/powere.ch/blob/main/steps/step02_preprocessing/market/regelenergie/preprocess_tertiary_regulation.py"
+
+embed_fields:
+  - "title"
+  - "summary"
+  - "processing"
+  - "inputs"
+  - "outputs"
+  - "edge_cases"
+  - "cli"
+  - "body"
+
+body: |
+  # Formel
+  avg_price_eur_mwh(t) = Σ_i(price_i * called_mw_i) / Σ_i(called_mw_i), über alle aktivierten Gebote im 15-Min-Slot t.
+
+  # Nutzung downstream
+  - Step 04 Loader `tertiary_regulation_loader.load_regulation_range` liest diese Monats-CSVs.
+  - Step 06 nutzt die Spalten `avg_price_eur_mwh` und konvertiert in CHF/kWh (÷1000, optional FX).
+
+  # Smoke-Test
+  - Eingabeverzeichnis prüfen: data/market/raw/regelenergie/mfrR/<YEAR>/
+  - Lauf:
+      python -m steps.step02_preprocessing.market.regelenergie.preprocess_tertiary_regulation --year 2024
+  - Output vorhanden?
+      ls data/market/processed/regelenergie/2024-*.csv
+  - Schema check:
+      head -n 3 data/market/processed/regelenergie/2024-01.csv

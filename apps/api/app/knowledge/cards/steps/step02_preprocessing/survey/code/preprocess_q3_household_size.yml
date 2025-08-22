@@ -1,0 +1,86 @@
+id: "code:steps/step02_preprocessing/survey/preprocess_q3_household_size.py#main"
+doc_type: "code_unit"
+lang: "de"
+title: "Survey Q3 (Haushaltsgröße): Extraktion & Normalisierung"
+step: "step02_preprocessing"
+module: "steps/step02_preprocessing/survey/preprocess_q3_household_size.py"
+path: "steps/step02_preprocessing/survey/preprocess_q3_household_size.py"
+repo_relpath: "steps/step02_preprocessing/survey/preprocess_q3_household_size.py"
+tags: ["preprocessing","survey","demografie","household","csv"]
+
+summary: >
+  Liest das SurveyMonkey-CSV, erkennt tolerant die Spalten `respondent_id` und Haushaltsgröße,
+  normalisiert gängige Textvarianten (>6 Personen → 7), extrahiert die erste Zahl und
+  schreibt `data/survey/processed/question_3_household_size.csv` (UTF-8).
+
+functions:
+  - "main()"
+  - "preprocess(infile: Path, outfile: Path) -> None"
+  - "read_raw_csv(path: Path) -> pd.DataFrame"
+  - "find_col_by_names(columns, candidates) -> Optional[str]"
+
+cli:
+  example: |
+    # aus dem Repo-Root:
+    python -m steps.step02_preprocessing.survey.preprocess_q3_household_size
+
+    # mit expliziten Pfaden:
+    python -m steps.step02_preprocessing.survey.preprocess_q3_household_size \
+      --infile "data/survey/raw/Energieverbrauch und Teilnahmebereitschaft an Demand-Response-Programmen in Haushalten.csv" \
+      --outfile "data/survey/processed/question_3_household_size.csv"
+
+inputs:
+  raw_csv: "data/survey/raw/Energieverbrauch und Teilnahmebereitschaft an Demand-Response-Programmen in Haushalten.csv"
+  column_detection:
+    respondent_id_candidates: ["respondent_id","Respondent ID","respondent id"]
+    household_size_candidates: ["Wie viele Personen leben in Ihrem Haushalt?","Haushaltsgröße","Haushaltsgroesse","Household size"]
+  header_note: "SurveyMonkey: zweite Headerzeile wird via skiprows=[1] übersprungen"
+  encoding_fallback: ["utf-8","latin-1"]
+
+processing:
+  - "Trim & Lowercase-Vorverarbeitung der Rohantworten."
+  - "Mapping häufiger Varianten auf '7' (Interpretation: >6 Personen)."
+  - "Extrahiere erste 1–2-stellige Zahl; konvertiere zu numerisch."
+  - "Schreibe UTF-8 CSV mit Schema respondent_id, household_size."
+
+outputs:
+  processed_csv: "data/survey/processed/question_3_household_size.csv"
+  schema_out: |
+    respondent_id (string)
+    household_size (number)
+
+edge_cases:
+  - "Antworten wie '6+' / '>6' / 'über 6' → 7."
+  - "Freitext ('3 Personen') → Zahl 3 wird extrahiert."
+  - "Fehlende Inputdatei → sauberer Abbruch mit Exit-Code 1."
+  - "Uneinheitliche Spaltennamen → Kandidatenliste + tolerante Normalisierung."
+
+router_hints:
+  intent_category: "erklaerung+code"
+  good_for_questions:
+    - "Wie werden Werte >6 interpretiert?"
+    - "Welche Spaltennamen werden erkannt?"
+    - "Wie geht der Job mit SurveyMonkey-Headern/Encodings um?"
+    - "Wo liegt die erzeugte Datei und welches Schema hat sie?"
+
+links:
+  server_path: "/srv/repos/powere.ch/steps/step02_preprocessing/survey/preprocess_q3_household_size.py"
+  repo_web_url: "https://github.com/Joe8u/powere.ch/blob/main/steps/step02_preprocessing/survey/preprocess_q3_household_size.py"
+
+embed_fields:
+  - "title"
+  - "summary"
+  - "processing"
+  - "inputs"
+  - "outputs"
+  - "edge_cases"
+  - "cli"
+  - "body"
+
+body: |
+  # Hinweise
+  - Die Logik (tolerante Spaltenerkennung, Header-/Encoding-Strategie) ist konsistent
+    mit Q1/Q2, damit bleibt das Preprocessing einheitlich.
+  - Die Wahl '7' als Kode für '>6' dient nur der univariate Auswertung; falls ihr später
+    eine echte offene Kategorie '7+' braucht, kann man dies in der Analytics-Schicht
+    wieder in Bins mappen.

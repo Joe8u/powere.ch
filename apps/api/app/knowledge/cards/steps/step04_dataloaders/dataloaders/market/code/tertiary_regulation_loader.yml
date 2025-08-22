@@ -1,0 +1,96 @@
+id: "code:steps/step04_dataloaders/dataloaders/market/tertiary_regulation_loader.py#module"
+doc_type: "code_unit"
+lang: "de"
+title: "Dataloader: Regelenergie (mFRR) – Monatsfiles laden & rangen"
+step: "step04_dataloaders"
+module: "steps/step04_dataloaders/dataloaders/market/tertiary_regulation_loader.py"
+path: "steps/step04_dataloaders/dataloaders/market/tertiary_regulation_loader.py"
+repo_relpath: "steps/step04_dataloaders/dataloaders/market/tertiary_regulation_loader.py"
+tags: ["dataloader","market","regelenergie","mFRR","processed-data","timezone","Zurich"]
+
+summary: >
+  Loader für die aus Step 02 vorverarbeiteten mFRR/Regelenergie-Monatsdateien
+  (15-min Raster, mengen-gewichteter Durchschnittspreis). Bevorzugt
+  `data/market/processed/regelenergie`, mit Fallback auf das Spiegelverzeichnis
+  `steps/step03_processed_data/market/regelenergie`. Zeitstempel werden
+  als Europe/Zurich lokalisiert und anschließend wieder tz-frei (naiv) zurückgegeben
+  – kompatibel zur bestehenden Modelllogik.
+
+storage_layout:
+  preferred_dir: "data/market/processed/regelenergie"
+  mirror_dir: "steps/step03_processed_data/market/regelenergie"
+  file_pattern: "<YEAR>-<MM>.csv"
+  columns:
+    - "timestamp (15-min, naiv im CSV; beim Laden kurz 'Europe/Zurich' → anschließend tz-frei)"
+    - "total_called_mw"
+    - "avg_price_eur_mwh"
+  produced_by: "steps/step02_preprocessing/market/regelenergie/preprocess_tertiary_regulation.py"
+
+functions:
+  - name: "list_regulation_months(year) -> List[int]"
+    desc: "Liest verfügbare Monatsdateien (1..12) aus preferred/mirror Verzeichnis und gibt sortierte Liste zurück."
+  - name: "load_regulation_month(year, month, tz='Europe/Zurich') -> pd.DataFrame"
+    desc: >
+      Lädt eine Monats-CSV, parsed 'timestamp', lokalisiert kurz nach 'Europe/Zurich'
+      (DST-robust mit ambiguous='infer', nonexistent='shift_forward'), entfernt dann die TZ
+      und gibt ein DataFrame mit Index=timestamp zurück (sortiert).
+  - name: "load_regulation_range(start, end, tz='Europe/Zurich') -> pd.DataFrame"
+    desc: >
+      Lädt einen zusammenhängenden Zeitraum innerhalb eines Jahres, concat der Monatsframes,
+      klemmt [start,end] an den verfügbaren Index und gibt den geschnittenen Frame zurück.
+      Start/Ende müssen im selben Jahr liegen.
+
+io_contracts:
+  timezone_behavior: >
+    CSV ist tz-frei; beim Laden wird auf 'Europe/Zurich' lokalisiert und anschließend die TZ wieder entfernt.
+    Damit bleiben „Wall-Times“ konsistent zur restlichen Pipeline.
+  year_constraint: "load_regulation_range verlangt start.year == end.year (ValueError sonst)."
+  errors:
+    - "FileNotFoundError, wenn Monatsdatei nicht existiert."
+    - "ValueError bei jahresübergreifenden Range-Anfragen."
+
+usage:
+  examples: |
+    import datetime as dt
+    from steps.step04_dataloaders.dataloaders.market.tertiary_regulation_loader import (
+        list_regulation_months, load_regulation_month, load_regulation_range
+    )
+
+    # Verfügbare Monate 2024
+    months = list_regulation_months(2024)
+
+    # Einzelner Monat (DataFrame mit Index=timestamp)
+    jan = load_regulation_month(2024, 1)
+
+    # Bereich (z. B. 2024-03-01 bis 2024-03-31 23:59)
+    s = dt.datetime(2024, 3, 1)
+    e = dt.datetime(2024, 3, 31, 23, 59, 59)
+    rng = load_regulation_range(s, e)
+
+    # Integration in TRE-Steps (z. B. tre06)
+    # from steps.step04_dataloaders.dataloaders.market.tertiary_regulation_loader import load_regulation_range
+
+edge_cases:
+  - "DST-Übergänge: Lokalisierung nutzt ambiguous='infer' und nonexistent='shift_forward' (Fallback mit NaT-Semantik)."
+  - "Spiegelverzeichnis: Falls primary nicht existiert, wird automatisch der Mirror unter steps/step03... verwendet."
+  - "Range-Clamping: start/end werden an den tatsächlichen Indexbereich geklemmt; inkl. Endzeit 23:59:59 auf 15-min Raster."
+  - "Jahreswechsel: jahresübergreifende Bereiche sind nicht erlaubt (explizit ValueError)."
+
+implementation_notes:
+  - "PROJECT_ROOT wird relativ zum 'steps'-Ordner ermittelt."
+  - "_base_dir() entscheidet zwischen Primary/Mirror; Pfadprobleme treten erst beim Datei-Zugriff auf."
+  - "Monats-Loader sortiert nach Index und gibt tz-freie (naive) Zeitstempel zurück."
+  - "Wird von step06 (z. B. tre06_grid_shiftable_energy.py) via load_regulation_range genutzt."
+
+links:
+  repo_web_url: "https://github.com/Joe8u/powere.ch/blob/main/steps/step04_dataloaders/dataloaders/market/tertiary_regulation_loader.py"
+  produced_by_script: "https://github.com/Joe8u/powere.ch/blob/main/steps/step02_preprocessing/market/regelenergie/preprocess_tertiary_regulation.py"
+
+embed_fields:
+  - "title"
+  - "summary"
+  - "storage_layout"
+  - "functions"
+  - "usage"
+  - "edge_cases"
+  - "implementation_notes"

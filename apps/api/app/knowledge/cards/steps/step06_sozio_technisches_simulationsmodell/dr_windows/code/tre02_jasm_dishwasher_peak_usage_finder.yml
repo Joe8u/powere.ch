@@ -1,0 +1,68 @@
+id: "code:steps/step06_sozio_technisches_simulationsmodell/dr_windows/tre02_jasm_dishwasher_peak_usage_finder.py#run"
+doc_type: "code_unit"
+title: "tre02 – JASM-Last an Top-TRE-Tagen laden"
+lang: "de"
+path: "steps/step06_sozio_technisches_simulationsmodell/dr_windows/tre02_jasm_dishwasher_peak_usage_finder.py"
+step: "step06_sozio_technisches_simulationsmodell"
+module: "dr_windows"
+tags: ["tre","mFRR","jasm","dr_windows","top-days","fallback"]
+summary: >
+  Lädt die N teuersten TRE-Perioden (entweder aus tre01-CSV oder on-the-fly aus
+  mFRR processed Daten) und extrahiert die aggregierten JASM-Lastprofile für
+  genau diese Tage für ein Zielgerät (Default: Geschirrspüler). Optionaler CSV-Export.
+functions:
+  - "_compute_top_periods_fallback(year, n_top, fx)"
+  - "_load_top_periods(year, n_top, fx)"
+  - "get_jasm_load_for_specific_dates(year, appliance, dates)"
+  - "run(year, appliance, n_top, fx, save)"
+  - "main()"
+defaults:
+  n_top_cli: "24"
+  appliance_default: "Geschirrspüler"
+  fx_default: "None (interpretiert als 1.0)"
+formulas:
+  - "price_chf_kwh = (avg_price_eur_mwh / 1000) * (fx or 1.0)"
+  - "top = nlargest(n_top, by=price_chf_kwh)"
+inputs:
+  data_sources:
+    - "tre01-Output: data/market/processed/dr_windows/tre_top_periods_<YEAR>[_fx<FX>].csv (optional)"
+    - "Fallback: load_regulation_range(start..end) → Index=timestamp; Spalten: total_called_mw, avg_price_eur_mwh"
+    - "JASM: load_appliances(appliances=[<appliance>], start, end, year, group=True)"
+  params:
+    - "year: Analysejahr"
+    - "n_top: Anzahl Top-Perioden (≈ Tage)"
+    - "appliance: Gerätename (z. B. 'Geschirrspüler')"
+    - "fx: EUR→CHF Multiplikator (None → 1.0)"
+outputs:
+  - "DataFrame (Index=DatetimeIndex gefiltert auf die Top-Tage; Spalte: <appliance>)"
+  - "optional CSV: data/market/processed/dr_windows/tre_jasm_{appliance_slug}_{year}_top{N}[_fx{FX}].csv"
+depends_on:
+  - "steps/step04_dataloaders/dataloaders/market/dr_windows_loader.py::load_tre_top_periods"
+  - "steps/step04_dataloaders/dataloaders/market/dr_windows_loader.py::list_tre_windows_files"
+  - "steps/step04_dataloaders/dataloaders/market/tertiary_regulation_loader.py::load_regulation_range"
+  - "steps/step04_dataloaders/dataloaders/lastprofile/__init__.py::load_appliances (oder dataloaders/jasm.py)"
+router_hints:
+  intent_category: "erklärung+berechnung"
+  good_for_questions:
+    - "Welche Daten nutzt tre02 und wann Fallback?"
+    - "Welche CSV schreibt tre02 und wie ist das Format?"
+    - "Wie wird fx angewandt (EUR/MWh → CHF/kWh)?"
+embed_fields: ["title","summary","body","formulas","inputs","outputs"]
+body: |
+  Ablauf:
+   1) Top-TRE-Perioden laden:
+      - Versuche CSV aus tre01 (load_tre_top_periods).
+      - Falls nicht vorhanden: Fallback über load_regulation_range(year) und Rechenweg:
+        price_chf_kwh = (avg_price_eur_mwh / 1000) * (fx or 1.0); danach nlargest(n_top).
+      - Annotiere weekday/hour; schneide auf n_top zu, falls CSV mehr Zeilen enthält.
+   2) Relevante Kalendertage extrahieren (unique Dates des Index).
+   3) JASM-Lastprofile für das Zielgerät nur an diesen Tagen laden (load_appliances(..., group=True)):
+      - Zeitbereich = min(dates) 00:00 bis max(dates) 23:59, dann Filter per .index.normalize().
+      - Ergebnis: DataFrame mit Spalte <appliance>, Zeilen nur an genannten Tagen.
+   4) Optional: CSV in data/market/processed/dr_windows/ speichern
+      (Dateiname enthält appliance_slug, year, top, optional fx).
+  Hinweise:
+   - Auflösung: entspricht der Rückgabe von load_appliances (typisch stündlich; keine Resampling-Logik in tre02).
+   - Fehlerfälle: leere mFRR-Daten, fehlende 'avg_price_eur_mwh', fehlende JASM-Spalte für Gerät → RuntimeError.
+cli_examples:
+  - "python -m steps.step06_sozio_technisches_simulationsmodell.dr_windows.tre02_jasm_dishwasher_peak_usage_finder --year 2024 --appliance 'Geschirrspüler' --top 24 --fx 0.97 --save"

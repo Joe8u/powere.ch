@@ -1,0 +1,33 @@
+id: "steps/step01_raw_data/market/regelenergie/swissgrid_mfrr_tre_csv"
+doc_type: "doc"
+title: "Swissgrid – Tertiärregelenergie (mFRR/TRE) Monats-CSV"
+lang: "de"
+summary: >
+  Monatliche CSV-Exporte (z. B. 'YYYY-MM-TRE-Ergebnis.csv') aus dem Swissgrid-Marktportal
+  mit abgerufenen Mengen und Preisen je 15-Minuten-Intervall.
+source:
+  name: "Swissgrid – Marktinformationen Regelenergie (mFRR/TRE)"
+  url_note: "Download über Kunden-/Marktportal; kein stabiler Direktlink pro Monat."
+files:
+  - path_hint: "data/market/raw/regelenergie/mfrR/<YEAR>/<YEAR>-<MM>-TRE-Ergebnis.csv"
+    delimiter: ";"
+    encoding: ["cp1252", "latin-1", "utf-8 (Fallback)"]
+expected_columns:
+  - "Ausschreibung"
+  - "Von"
+  - "Bis"
+  - "Produkt"
+  - "Angebotene Menge"        # rechts daneben steht die Einheitsspalte
+  - "Abgerufene Menge"        # rechts daneben steht die Einheitsspalte
+  - "Preis"                   # rechts daneben steht die Einheitsspalte
+  - "Status"
+processing_notes:
+  - "Step02 aggregiert nur aktivierte Events (Abgerufene Menge > 0) je 15-Minuten-Slot."
+  - "Gewichteter Durchschnittspreis: sum(Preis * Abgerufene Menge) / sum(Abgerufene Menge)."
+  - "Timestamp wird aus Datum der Ausschreibung + 'Von' (HH:MM) gebildet."
+context:
+  - "Begriff/Produktdefinitionen siehe Swissgrid-Dokument 'Systemdienstleistungsprodukte' (mFRR/TRE)."
+references:
+  - title: "Swissgrid – Systemdienstleistungsprodukte (gültig ab 01.11.2024)"
+    url: "https://www.swissgrid.ch/content/dam/swissgrid/customers/topics/ancillary-services/as-documents/D241101-AS-Products-V20-de.pdf"
+license: "Siehe Swissgrid-Marktdokumente"

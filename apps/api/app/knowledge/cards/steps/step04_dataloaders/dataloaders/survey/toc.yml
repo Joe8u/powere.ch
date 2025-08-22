@@ -1,0 +1,11 @@
+id: "steps/step04_dataloaders/dataloaders/survey"
+doc_type: "toc"
+title: "Step 04 – Dataloaders – Survey"
+lang: "de"
+children:
+  - "code:steps/step04_dataloaders/dataloaders/survey/attitudes.py#module"
+  - "code:steps/step04_dataloaders/dataloaders/survey/demand_response.py#module"
+  - "code:steps/step04_dataloaders/dataloaders/survey/demographics.py#module"
+  - "code:steps/step04_dataloaders/dataloaders/survey/incentives.py#module"
+  - "code:steps/step04_dataloaders/dataloaders/survey/nonuse.py#module"
+  - "code:steps/step04_dataloaders/dataloaders/survey/socioeconomics.py#module"

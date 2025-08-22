@@ -1,0 +1,93 @@
+id: "code:steps/step04_dataloaders/dataloaders/survey/socioeconomics.py#module"
+doc_type: "code_unit"
+lang: "de"
+title: "Dataloader: Survey – Sozioökonomie (Q13–Q15)"
+step: "step04_dataloaders"
+module: "steps/step04_dataloaders/dataloaders/survey/socioeconomics.py"
+path: "steps/step04_dataloaders/dataloaders/survey/socioeconomics.py"
+repo_relpath: "steps/step04_dataloaders/dataloaders/survey/socioeconomics.py"
+tags: ["dataloader","survey","income","education","party","processed-data"]
+
+summary: >
+  Lädt die in Step-02 erzeugten, verarbeiteten Survey-Tabellen zu Einkommen (Q13),
+  Bildungsabschluss (Q14) und Parteipräferenz (Q15) aus `data/survey/processed`.
+  Alle Spalten werden zunächst als **string** eingelesen; `respondent_id` wird
+  bereinigt (".0" entfernen, leere/nan → NA) und Zeilen ohne gültige ID werden
+  verworfen. Fehlt eine Datei, wird eine Warnung geloggt und ein leeres
+  DataFrame zurückgegeben.
+
+storage_layout:
+  processed_dir: "data/survey/processed"
+  files:
+    income:     "question_13_income.csv"
+    education:  "question_14_education.csv"
+    party_pref: "question_15_party.csv"
+  upstream:
+    - "steps/step02_preprocessing/survey/preprocess_q13_income.py"
+    - "steps/step02_preprocessing/survey/preprocess_q14_education.py"
+    - "steps/step02_preprocessing/survey/preprocess_q15_party.py"
+  schema_notes:
+    income: >
+      Spalten: respondent_id, q13_income (Label), income_min_chf, income_max_chf, income_mid_chf
+      (numerische Felder liegen hier als Strings vor; Typkonvertierung downstream).
+    education: "respondent_id, q14_education"
+    party_pref: "respondent_id, q15_party"
+
+functions:
+  - name: "load_socioeconomics() -> dict[str, pd.DataFrame]"
+    desc: "Lädt alle drei Tabellen und liefert ein Dict mit Schlüsseln {'income','education','party_pref'}."
+  - name: "load_income() -> pd.DataFrame"
+    desc: "Nur Q13 (Einkommen) laden."
+  - name: "load_education() -> pd.DataFrame"
+    desc: "Nur Q14 (Bildungsabschluss) laden."
+  - name: "load_party_pref() -> pd.DataFrame"
+    desc: "Nur Q15 (Parteipräferenz) laden."
+
+io_contracts:
+  inputs:
+    - "DATA_ROOT/survey/processed/question_13_income.csv"
+    - "DATA_ROOT/survey/processed/question_14_education.csv"
+    - "DATA_ROOT/survey/processed/question_15_party.csv"
+  outputs:
+    - "pd.DataFrame je Datei (alle Spalten initial string; 'respondent_id' bereinigt)."
+  error_handling:
+    - "Fehlende Datei → Warnung auf stdout; leeres DataFrame."
+  encoding: "UTF-8"
+
+usage:
+  examples: |
+    from steps.step04_dataloaders.dataloaders.survey.socioeconomics import (
+        load_socioeconomics, load_income, load_education, load_party_pref
+    )
+
+    dfs = load_socioeconomics()
+    income = dfs["income"].assign(
+        income_min_chf=lambda d: pd.to_numeric(d["income_min_chf"], errors="coerce"),
+        income_max_chf=lambda d: pd.to_numeric(d["income_max_chf"], errors="coerce"),
+        income_mid_chf=lambda d: pd.to_numeric(d["income_mid_chf"], errors="coerce"),
+    )
+
+    edu = load_education()
+    party = load_party_pref()
+
+edge_cases:
+  - "Leere/fehlende Dateien werden toleriert (leeres DF + Warnung)."
+  - "respondent_id-Bereinigung: entfernt anhängendes '.0', leert Strings und 'nan' → NA; Zeilen ohne ID werden verworfen."
+  - "Numerische Spalten aus Q13 sind beim Laden 'string' und sollten downstream gecastet werden."
+
+implementation_notes:
+  - "`DATA_ROOT` stammt aus `steps/step04_dataloaders/dataloaders/io.py`."
+  - "Alle CSVs werden mit `dtype=str` gelesen; keine Typannahmen im Loader."
+  - "Einheitliche Warnmeldungen je Datei verbessern die Diagnose in Pipelines/CI."
+
+links:
+  repo_web_url: "https://github.com/Joe8u/powere.ch/blob/main/steps/step04_dataloaders/dataloaders/survey/socioeconomics.py"
+
+embed_fields:
+  - "title"
+  - "summary"
+  - "storage_layout"
+  - "functions"
+  - "usage"
+  - "edge_cases"
+  - "implementation_notes"

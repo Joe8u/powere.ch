@@ -1,0 +1,24 @@
+id: "explainer:steps/step02_preprocessing/data_lineage"
+doc_type: "explainer"
+lang: "de"
+title: "Data Lineage: von raw nach processed"
+summary: "Welche Rohquellen landen in welchen processed-Artefakten (vereinheitlicht)."
+lineage:
+  - raw: "data/market/raw/regelenergie/*.csv (Beispiel)"
+    processed: "data/market/processed/regelenergie/YYYY-MM.csv"
+    key_ops:
+      - "Zeitstempel normalisieren (Europe/Zurich → optional UTC)"
+      - "Preisfelder in CHF/kWh"
+      - "Spaltenschema & dtypes fixieren"
+  - raw: "data/lastprofile/raw/jasm/*.csv (Beispiel)"
+    processed: "data/lastprofile/processed/jasm/YYYY.csv"
+    key_ops:
+      - "Resampling auf 15min (falls nötig)"
+      - "Geräte-/Haushaltsaggregation konsistent"
+  - raw: "data/survey/raw/*.csv (Q9/Q10)"
+    processed: "data/survey/processed/*.csv"
+    key_ops:
+      - "Antworten auf kanonische Gerätespalten mappen"
+      - "Q9-Dauern und Q10-Incentives parsen (Zahlen/Choice)"
+notes:
+  - "Die exakten Pfade/Dateien sind in den jeweiligen Code-Karten dokumentiert."

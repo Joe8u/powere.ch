@@ -1,0 +1,74 @@
+id: "code:steps/step04_dataloaders/dataloaders/survey/nonuse.py#module"
+doc_type: "code_unit"
+lang: "de"
+title: "Dataloader: Survey Q9 – Non-use (Wide-Format)"
+step: "step04_dataloaders"
+module: "steps/step04_dataloaders/dataloaders/survey/nonuse.py"
+path: "steps/step04_dataloaders/dataloaders/survey/nonuse.py"
+repo_relpath: "steps/step04_dataloaders/dataloaders/survey/nonuse.py"
+tags: ["dataloader","survey","q9","nonuse","wide","processed-data"]
+
+summary: >
+  Lädt die in Step-02 erzeugte Q9-Tabelle `question_9_nonuse_wide.csv`
+  (Bereitschaft, Geräte zeitweise nicht zu nutzen) aus dem `data/survey/processed`-Ordner.
+  Gibt ein DataFrame zurück, in dem **alle Spalten als string** eingelesen werden.
+  Fehlende Datei führt bewusst zu `FileNotFoundError`. Enthält einen Alias
+  für Rückwärtskompatibilität.
+
+storage_layout:
+  processed_dir: "data/survey/processed"
+  file: "question_9_nonuse_wide.csv"
+  upstream:
+    - "steps/step02_preprocessing/survey/preprocess_q9_nonuse_wide.py"
+  schema_notes: >
+    Wide-Format mit `respondent_id` plus 6 Gerätespalten (bereinigte Textantworten
+    zu Q9). Gerätekategorien entsprechen den in Q8/Q10 verwendeten Bezeichnungen.
+
+functions:
+  - name: "load_nonuse() -> pd.DataFrame"
+    desc: >
+      Liest `<DATA_ROOT>/survey/processed/question_9_nonuse_wide.csv`
+      mit `dtype=str`, `encoding='utf-8'` und gibt das Ergebnis zurück.
+      Datei muss existieren, sonst `FileNotFoundError`.
+  - name: "load_question_9_nonuse() -> pd.DataFrame"
+    desc: "Alias für `load_nonuse()` (Rückwärtskompatibilität alter Imports)."
+
+io_contracts:
+  inputs:
+    - "DATA_ROOT/survey/processed/question_9_nonuse_wide.csv"
+  outputs: "pd.DataFrame (alle Spalten als string; inkl. respondent_id und Gerätespalten)."
+  error_handling:
+    - "Fehlende Datei → `FileNotFoundError`."
+  encoding: "UTF-8"
+
+usage:
+  examples: |
+    from steps.step04_dataloaders.dataloaders.survey.nonuse import load_nonuse
+
+    q9 = load_nonuse()
+    # q9.columns z. B.: respondent_id, 'Geschirrspüler', 'Backofen und Herd', ...
+
+    # Weiterverwendung:
+    # - Step 06: prepare_survey_flexibility_data() (a_survey_data_preparer.py)
+    #   schmilzt Q9 nach long und mappt die Texte auf Dauerklassen.
+
+edge_cases:
+  - "Spalten sind bewusst als string geladen – numerische Interpretation erfolgt downstream."
+  - "Falls Spaltennamen leicht abweichen, ist das bereits im Preprocessing (Step-02) normalisiert."
+
+implementation_notes:
+  - "`DATA_ROOT` kommt aus `steps/step04_dataloaders/dataloaders/io.py`."
+  - "Keine respondent_id-Normalisierung in diesem Loader (reine I/O-Schicht)."
+  - "Hält das Verhalten konsistent zu `incentives.load_incentives()`."
+
+links:
+  repo_web_url: "https://github.com/Joe8u/powere.ch/blob/main/steps/step04_dataloaders/dataloaders/survey/nonuse.py"
+
+embed_fields:
+  - "title"
+  - "summary"
+  - "storage_layout"
+  - "functions"
+  - "usage"
+  - "edge_cases"
+  - "implementation_notes"

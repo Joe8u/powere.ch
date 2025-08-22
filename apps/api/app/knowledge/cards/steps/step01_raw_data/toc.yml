@@ -1,0 +1,8 @@
+id: "steps/step01_raw_data"
+doc_type: "toc"
+title: "Step 01 – Raw Data (Quellen & Formate)"
+lang: "de"
+children:
+  - "toc:steps/step01_raw_data/lastprofile/toc.yml"
+  - "toc:steps/step01_raw_data/survey/toc.yml"
+  - "toc:steps/step01_raw_data/market/regelenergie/toc.yml"

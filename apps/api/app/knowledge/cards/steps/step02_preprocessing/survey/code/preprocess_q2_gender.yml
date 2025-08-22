@@ -1,0 +1,85 @@
+id: "code:steps/step02_preprocessing/survey/preprocess_q2_gender.py#main"
+doc_type: "code_unit"
+lang: "de"
+title: "Survey Q2 (Geschlecht): Extraktion & Export"
+step: "step02_preprocessing"
+module: "steps/step02_preprocessing/survey/preprocess_q2_gender.py"
+path: "steps/step02_preprocessing/survey/preprocess_q2_gender.py"
+repo_relpath: "steps/step02_preprocessing/survey/preprocess_q2_gender.py"
+tags: ["preprocessing","survey","demografie","geschlecht","csv"]
+
+summary: >
+  Liest das SurveyMonkey-CSV, findet tolerant die Spalten für `respondent_id` und
+  `Geschlecht`, trimmt Werte und schreibt `data/survey/processed/question_2_gender.csv`.
+  Encoding-Fallback (utf-8/latin-1) und die typische doppelte Headerzeile von SurveyMonkey
+  werden berücksichtigt.
+
+functions:
+  - "main()"
+  - "preprocess(infile: Path, outfile: Path) -> None"
+  - "read_raw_csv(path: Path) -> pd.DataFrame"
+  - "find_col_by_names(columns, candidates) -> Optional[str]"
+
+cli:
+  example: |
+    # bevorzugter Modulaufruf (aus Repo-Root):
+    python -m steps.step02_preprocessing.survey.preprocess_q2_gender
+
+    # mit expliziten Pfaden:
+    python -m steps.step02_preprocessing.survey.preprocess_q2_gender \
+      --infile "data/survey/raw/Energieverbrauch und Teilnahmebereitschaft an Demand-Response-Programmen in Haushalten.csv" \
+      --outfile "data/survey/processed/question_2_gender.csv"
+
+inputs:
+  raw_csv: "data/survey/raw/Energieverbrauch und Teilnahmebereitschaft an Demand-Response-Programmen in Haushalten.csv"
+  column_detection:
+    respondent_id_candidates: ["respondent_id","Respondent ID","respondent id"]
+    gender_candidates: ["Was ist Ihr Geschlecht?","Was ist Ihr Geschlecht?*","Gender","Geschlecht"]
+  header_note: "SurveyMonkey-CSV: zweite Header-Zeile wird via skiprows=[1] übersprungen"
+  encoding_fallback: ["utf-8","latin-1"]
+
+processing:
+  - "Spaltenerkennung tolerant (exakt → normalisiert)."
+  - "Trim von Geschlechtsangaben, ansonsten Rohwerte beibehalten (keine Re-Mapping-Logik)."
+  - "Ausgabe als UTF-8 CSV."
+
+outputs:
+  processed_csv: "data/survey/processed/question_2_gender.csv"
+  schema_out: |
+    respondent_id (string)
+    gender (string)
+
+edge_cases:
+  - "Variierende Spaltenbezeichnungen (Lokalisierung) → Kandidatenliste + Normalisierung."
+  - "Doppelte Kopfzeile in SurveyMonkey-Export → skiprows=[1]."
+  - "Uneinheitliches Encoding → Fallback latin-1."
+  - "Fehlende Inputdatei → sauberer Abbruch mit Fehlercode."
+
+router_hints:
+  intent_category: "erklaerung+code"
+  good_for_questions:
+    - "Wie werden Spalten robust gefunden?"
+    - "Warum wird Gender nicht kategorisiert gemappt?"
+    - "Wo liegt die erzeugte Datei und wie sieht das Schema aus?"
+    - "Wie gehe ich mit SurveyMonkey-Headern/Encodings um?"
+
+links:
+  server_path: "/srv/repos/powere.ch/steps/step02_preprocessing/survey/preprocess_q2_gender.py"
+  repo_web_url: "https://github.com/Joe8u/powere.ch/blob/main/steps/step02_preprocessing/survey/preprocess_q2_gender.py"
+
+embed_fields:
+  - "title"
+  - "summary"
+  - "processing"
+  - "inputs"
+  - "outputs"
+  - "edge_cases"
+  - "cli"
+  - "body"
+
+body: |
+  # Hinweise
+  - Die Funktion `find_col_by_names` und die Header/Encoding-Strategie sind identisch zu Q1,
+    damit bleibt das Preprocessing konsistent.
+  - Falls du später eine Normalisierung (z. B. {weiblich,männlich,divers} → kanonische Codes)
+    brauchst, ergänze diese Karte um einen Mapping-Abschnitt und verweise auf die Implementierung.

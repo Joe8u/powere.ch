@@ -1,0 +1,85 @@
+id: "code:steps/step04_dataloaders/dataloaders/lastprofile/io.py#module"
+doc_type: "code_unit"
+lang: "de"
+title: "Dataloader: Lastprofile (15-min), gruppiert nach Survey-Kategorien"
+step: "step04_dataloaders"
+module: "steps/step04_dataloaders/dataloaders/lastprofile/io.py"
+path: "steps/step04_dataloaders/dataloaders/lastprofile/io.py"
+repo_relpath: "steps/step04_dataloaders/dataloaders/lastprofile/io.py"
+tags: ["dataloader","timeseries","15min","survey-categories","io"]
+
+summary: >
+  Lädt vorverarbeitete 15-Minuten-Lastprofile aus data/lastprofile/processed/<year>/YYYY-MM.csv
+  und stellt bequeme Loader für Monate, Zeitbereiche und Gerätegruppen (Survey-Kategorien)
+  bereit. Optional werden Rohspalten zu Survey-Gruppen aggregiert (GROUP_MAP).
+
+inputs:
+  storage_layout: "data/lastprofile/processed/<year>/<year>-<month>.csv"
+  index_col: "timestamp (pandas datetime)"
+  value_cols: "einzelne Gerätespalten (Roh) oder aggregierte Kategorien (bei group=True)"
+  group_map: |
+    Geschirrspüler,
+    Backofen und Herd,
+    Fernseher und Entertainment-Systeme,
+    Bürogeräte,
+    Waschmaschine
+
+functions:
+  - name: "list_appliances(year: int, *, group: bool = False) -> list[str]"
+    desc: "Listet Spaltennamen. Bei group=True die Schlüssel aus GROUP_MAP, sonst die Rohspalten."
+  - name: "load_month(year: int, month: int, *, group: bool = False) -> pd.DataFrame"
+    desc: "Lädt einen Monats-CSV und gibt DataFrame mit datetime-Index zurück; optional gruppiert."
+  - name: "load_range(start: dt.datetime, end: dt.datetime, *, year: int | None = None, group: bool = False) -> pd.DataFrame"
+    desc: >
+      Konkateniert Monatsdateien und schneidet per df.loc[start:end].
+      Wenn start/end im selben Jahr liegen, werden nur die betroffenen Monate gelesen;
+      andernfalls muss year explizit gesetzt werden (dann wird das angegebene Jahr geladen und anschließend per Datum geschnitten).
+  - name: "load_appliances(appliances: list[str], start: dt.datetime, end: dt.datetime, *, year: int | None = None, group: bool = False) -> pd.DataFrame"
+    desc: "Wrapper um load_range, gefiltert auf die gewünschten Spalten."
+
+outputs:
+  dataframe:
+    index: "DatetimeIndex (naiv), 15-Minuten-Raster"
+    columns: "Geräte (roh) oder Gruppen (bei group=True)"
+    freq: "≈ 15min (wie in den Precompute-CSVs)"
+
+usage:
+  examples: |
+    import datetime as dt
+    from steps.step04_dataloaders.dataloaders.lastprofile.io import (
+        list_appliances, load_month, load_range, load_appliances
+    )
+
+    # verfügbare Gruppen für 2024
+    print(list_appliances(2024, group=True))  # ['Geschirrspüler', 'Backofen und Herd', ...]
+
+    # Januar 2024 gruppiert laden
+    df_jan = load_month(2024, 1, group=True)
+
+    # Bereich (naive Zeiten) – 10.–12. Feb 2024
+    s, e = dt.datetime(2024,2,10), dt.datetime(2024,2,12,23,59)
+    df_range = load_range(s, e, group=True)
+
+    # nur Geschirrspüler in diesem Bereich
+    df_gsp = load_appliances(["Geschirrspüler"], s, e, group=True)
+
+edge_cases:
+  - "Fehlende Datei: list_appliances() liest <year>-01.csv; wenn diese fehlt, schlägt der Aufruf fehl."
+  - "Gruppierung: Wenn eine in GROUP_MAP gelistete Rohspalte nicht existiert, wird die Gruppenspalte mit 0.0 gefüllt."
+  - "Jahresgrenzen: Bei start/end in verschiedenen Jahren muss year explizit angegeben werden; dann wird das angegebene Jahr geladen und datenbasiert geschnitten (potenziell lädt das ganze Jahr)."
+
+implementation_notes:
+  - "Slicing erfolgt nach dem Konkat der Monatsframes: df.loc[start:end]."
+  - "Bei cross-year mit gesetztem year lädt load_range alle 12 Monate dieses Jahres und filtert dann per Datum (einfach & robust, aber weniger effizient)."
+  - "Zeitstempel sind *naiv* (ohne TZ) – die Precompute-Pipelines erzeugen naive 15-Minuten-Stempel."
+
+links:
+  repo_web_url: "https://github.com/Joe8u/powere.ch/blob/main/steps/step04_dataloaders/dataloaders/lastprofile/io.py"
+
+embed_fields:
+  - "title"
+  - "summary"
+  - "functions"
+  - "usage"
+  - "edge_cases"
+  - "implementation_notes"

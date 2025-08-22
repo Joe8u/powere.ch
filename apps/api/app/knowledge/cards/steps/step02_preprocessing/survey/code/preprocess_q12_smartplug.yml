@@ -1,0 +1,90 @@
+id: "code:steps/step02_preprocessing/survey/preprocess_q12_smartplug.py#main"
+doc_type: "code_unit"
+lang: "de"
+title: "Survey Q12: Smart-Plug-Bereitschaft – Erkennung, Normalisierung & Export"
+step: "step02_preprocessing"
+module: "steps/step02_preprocessing/survey/preprocess_q12_smartplug.py"
+path: "steps/step02_preprocessing/survey/preprocess_q12_smartplug.py"
+repo_relpath: "steps/step02_preprocessing/survey/preprocess_q12_smartplug.py"
+tags: ["preprocessing","survey","csv","regex","robust-column-detection"]
+
+summary: >
+  Erkennt die Q12-Frage („Smart Plug / Zwischenstecker“) robust per Regex über die Spaltennamen,
+  normalisiert die Antwort auf {Ja | Nein | (sonst Originaltext)} und schreibt eine kompakte CSV:
+  respondent_id, q12_smartplug.
+
+functions:
+  - "main()"
+  - "preprocess(infile: Path, outfile: Path, debug: bool=False) -> None"
+  - "project_root() -> Path"
+  - "read_raw_flat(path: Path) -> pd.DataFrame"
+  - "find_q12_column(columns: list[str], debug: bool=False) -> str | None"
+  - "normalize_choice(val: Optional[str]) -> Optional[str]"
+
+cli:
+  example: |
+    # aus dem Repo-Root
+    python -m steps.step02_preprocessing.survey.preprocess_q12_smartplug
+
+    # mit Pfaden/Debug
+    python -m steps.step02_preprocessing.survey.preprocess_q12_smartplug \
+      --infile "data/survey/raw/Energieverbrauch und Teilnahmebereitschaft an Demand-Response-Programmen in Haushalten.csv" \
+      --outfile "data/survey/processed/question_12_smartplug.csv" \
+      --debug
+
+inputs:
+  raw_csv: "data/survey/raw/Energieverbrauch und Teilnahmebereitschaft an Demand-Response-Programmen in Haushalten.csv"
+  header_usage: "header=0, skiprows=[1] (SurveyMonkey: zweite Kopfzeile überspringen)"
+  column_detection: "Regex '(smart\\s*plug|zwischenstecker)' auf Spaltennamen; längster Match gewinnt."
+
+processing:
+  - "respondent_id aus der flachen Sicht (header=0, skiprows=[1]) auslesen."
+  - "Q12-Spalte via find_q12_column() per Regex ermitteln; bei Mehrfachtreffern längsten Namen wählen."
+  - "Antworten mit normalize_choice() mappen: 'Ja'/'Nein' inkl. Kurzformen; sonst Original mit korrektem Case."
+  - "Ergebnis als CSV schreiben."
+
+outputs:
+  processed_csv: "data/survey/processed/question_12_smartplug.csv"
+  schema_out: |
+    respondent_id (string)
+    q12_smartplug (string: 'Ja' | 'Nein' | Freitext | <NA>)
+
+edge_cases:
+  - "Mehrere Spalten enthalten 'Smart Plug'/'Zwischenstecker' -> längster Spaltenname wird gewählt."
+  - "Encoding-Fallback: utf-8 → latin-1."
+  - "Leere oder 'nan'-Strings werden zu <NA>."
+
+notes:
+  - "Kleines Cleanup möglich: In normalize_choice() gibt es nach einem return noch duplizierte Logik; kann entfernt werden."
+
+downstream:
+  - "Optional für Opt-in-Bereitschaft bei Mess-/Vergütungs­infrastruktur, z. B. Segmentierungen in Dashboards."
+
+router_hints:
+  intent_category: "erklaerung+code"
+  good_for_questions:
+    - "Wie wird die Q12-Spalte robust gefunden?"
+    - "Wie werden Kurzformen (y/n) normalisiert?"
+    - "Welche Datei entsteht und welches Schema hat sie?"
+
+links:
+  server_path: "/srv/repos/powere.ch/steps/step02_preprocessing/survey/preprocess_q12_smartplug.py"
+  repo_web_url: "https://github.com/Joe8u/powere.ch/blob/main/steps/step02_preprocessing/survey/preprocess_q12_smartplug.py"
+
+embed_fields:
+  - "title"
+  - "summary"
+  - "processing"
+  - "inputs"
+  - "outputs"
+  - "edge_cases"
+  - "cli"
+  - "downstream"
+  - "body"
+
+body: |
+  # Hinweise
+  - Die Spaltenerkennung nutzt eine Regex auf 'smart plug' bzw. 'zwischenstecker' und wählt bei mehreren Treffern
+    den längsten Spaltennamen (typischerweise der volle Fragetext).
+  - Antworten werden auf 'Ja'/'Nein' normalisiert (inkl. Kurzformen 'y/yes' und 'n/no'); unbekannte/andere Antworten
+    bleiben als Freitext erhalten, aber mit initialem Großbuchstaben.

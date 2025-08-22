@@ -1,0 +1,77 @@
+id: "code:steps/step06_sozio_technisches_simulationsmodell/dr_windows/tre03_dr_day_identifier.py#run"
+doc_type: "code_unit"
+title: "tre03 – DR-Kandidatentage identifizieren (TRE-Peaks ∩ JASM-Fenster)"
+lang: "de"
+path: "steps/step06_sozio_technisches_simulationsmodell/dr_windows/tre03_dr_day_identifier.py"
+repo_relpath: "steps/step06_sozio_technisches_simulationsmodell/dr_windows/tre03_dr_day_identifier.py"
+step: "step06_sozio_technisches_simulationsmodell"
+module: "dr_windows"
+tags: ["tre","mFRR","jasm","dr_windows","windows","candidates","threshold"]
+summary: >
+  Bestimmt für ein Zielgerät jene Kalendertage als DR-Kandidaten, an denen
+  mindestens eine TRE-Preisspitze innerhalb des kürzesten JASM-Zeitfensters liegt,
+  das ≥ threshold% der Tagesenergie abdeckt. Optional: Export der Fenster je Tag
+  sowie der Kandidatentage als CSV.
+functions:
+  - "compute_shortest_energy_windows(df, col, threshold_pct)"
+  - "identify_dr_candidate_days(tre_peaks, windows)"
+  - "run(year, appliance, top, threshold_pct, fx, save)"
+  - "main()"
+defaults:
+  year_default: "aktuelles Jahr"
+  top_default: 150
+  appliance_default: "Geschirrspüler"
+  threshold_default_pct: 70.0
+formulas:
+  - "target_energy = sum(day_values) * (threshold_pct / 100)"
+  - "Finde kleinstes zusammenhängendes Intervall [L..R] mit sum(values[L..R]) ≥ target_energy (Sliding-Window)."
+  - "Fensterende = (R + 1)*Δt; wenn über Mitternacht → Ende als 00:00 ausgeben."
+  - "DR-Kandidat: ∃ Peak-Zeitpunkt t_peak am Tag, sodass t_peak im Gerätefenster liegt."
+inputs:
+  data_sources:
+    - "tre01-Output: tre_top_periods_<YEAR>[_fx<FX>].csv (über load_tre_top_periods), gekürzt auf Top=N nach price_chf_kwh"
+    - "JASM: load_appliances(appliances=[<appliance>], start=min(day), end=max(day), year, group=True) → Tagesmatrizen"
+  params:
+    - "year: Analysejahr"
+    - "top: Anzahl Top-TRE-Perioden (≈ Tage)"
+    - "appliance: Gerätename (z. B. 'Geschirrspüler')"
+    - "threshold_pct: Energie-Schwelle in % je Tag (z. B. 70)"
+    - "fx: EUR→CHF Multiplikator (None → 1.0), wirkt upstream bei tre01/loader"
+outputs:
+  - "windows_df (optional CSV): je Tag Start/Ende des kürzesten ≥threshold%-Fensters sowie window_pct/window_sum"
+  - "dr_days (optional CSV): Liste der DR-Kandidatentage (YYYY-MM-DD)"
+csv_exports:
+  windows_pattern: "data/market/processed/dr_windows/tre_windows_<slug>_<year>_top<T>_thr<THR>[_fx<FX>].csv"
+  days_pattern: "data/market/processed/dr_windows/tre_dr_days_<slug>_<year>_top<T>_thr<THR>[_fx<FX>].csv"
+depends_on:
+  - "steps/step04_dataloaders/dataloaders/market/dr_windows_loader.py::load_tre_top_periods"
+  - "steps/step04_dataloaders/dataloaders/lastprofile/__init__.py::load_appliances (oder dataloaders/jasm.py)"
+edge_cases:
+  - "Leerer Tag oder Tagesenergie ≤ 0 → Fenster=None."
+  - "Nur ein Timestamp → Δt=15min Fallback."
+  - "Fenster endet formal nach 24:00 → Ende als 00:00 des Folgetags reporten."
+  - "TRE-Peaks haben kein Match am Tag → kein Kandidat."
+router_hints:
+  intent_category: "erklärung+berechnung"
+  good_for_questions:
+    - "Wie wird das kürzeste ≥70%-Fenster berechnet?"
+    - "Welcher Tag wurde Kandidat und warum?"
+    - "Was steht in den Export-CSV-Dateien?"
+embed_fields: ["title","summary","formulas","inputs","outputs","edge_cases","body"]
+body: |
+  Ablauf:
+   1) Lade Top-TRE-Perioden (load_tre_top_periods) und beschränke auf Top=N nach price_chf_kwh.
+   2) Extrahiere die betroffenen Tage (unique .index.normalize().date).
+   3) Lade JASM für das Zielgerät nur für diese Tage (group=True), filtere exakt auf diese Tage.
+   4) compute_shortest_energy_windows:
+      - Pro Tag Sliding-Window über die Zeitreihe, bis die kumulierte Summe ≥ target_energy ist.
+      - Wähle das kürzeste Intervall; berechne Start/Ende/Anteil (pct) und Energiesumme (sum).
+   5) identify_dr_candidate_days:
+      - Tag ist Kandidat, wenn mindestens eine TRE-Preisspitze des Tages innerhalb des Gerätefensters liegt
+        (inkl. Spezialfälle: bis Tagesende / 24h-Fenster).
+   6) Optional: CSV-Export der Fenster-Tabelle und der Kandidatentage.
+cli_examples:
+  - "python -m steps.step06_sozio_technisches_simulationsmodell.dr_windows.tre03_dr_day_identifier --year 2024 --appliance 'Geschirrspüler' --top 200 --threshold 70 --fx 0.97 --save"
+links:
+  repo_relpath: "steps/step06_sozio_technisches_simulationsmodell/dr_windows/tre03_dr_day_identifier.py"
+  server_path: "/srv/repos/powere.ch/steps/step06_sozio_technisches_simulationsmodell/dr_windows/tre03_dr_day_identifier.py"

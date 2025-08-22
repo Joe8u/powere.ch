@@ -1,0 +1,67 @@
+id: "code:steps/step02_preprocessing/survey/preprocess_q15_party.py#main"
+doc_type: "code_unit"
+lang: "de"
+title: "Survey Q15: Parteipräferenz – Extraktion & Bereinigung"
+step: "step02_preprocessing"
+module: "steps/step02_preprocessing/survey/preprocess_q15_party.py"
+path: "steps/step02_preprocessing/survey/preprocess_q15_party.py"
+repo_relpath: "steps/step02_preprocessing/survey/preprocess_q15_party.py"
+tags: ["preprocessing","survey","csv","categorical-cleaning","sensitive-data"]
+
+summary: >
+  Liest die Survey-CSV (SurveyMonkey, zweite Kopfzeile wird übersprungen), findet die Q15-Spalte
+  zur Parteipräferenz über robuste Stichwörter („Partei“, „politisch“), extrahiert
+  respondent_id + Rohantwort und bereinigt leere/„keine …“-Angaben zu „Keine Angabe“.
+
+functions:
+  - "preprocess_q15_party(raw_csv: str, out_csv: str) -> None"
+  - "_read_csv_any_encoding(path: Path) -> pd.DataFrame"
+  - "_find_q15_column(columns) -> str | None"
+
+cli:
+  example: |
+    # aus dem Repo-Root
+    python -m steps.step02_preprocessing.survey.preprocess_q15_party
+
+    # mit Pfaden
+    python -m steps.step02_preprocessing.survey.preprocess_q15_party \
+      "data/survey/raw/Energieverbrauch und Teilnahmebereitschaft an Demand-Response-Programmen in Haushalten.csv" \
+      "data/survey/processed/question_15_party.csv"
+
+inputs:
+  raw_csv: "data/survey/raw/Energieverbrauch und Teilnahmebereitschaft an Demand-Response-Programmen in Haushalten.csv"
+  header_usage: "header=0, skiprows=[1] (SurveyMonkey: zweite Kopfzeile wird übersprungen)"
+  id_column: "respondent_id (Pflicht)"
+  q15_detection: "erste Spalte, deren Name 'partei' oder 'politisch' enthält (case-insensitive)."
+
+processing:
+  - "Trimmen/Typisierung als string."
+  - "Leere Werte oder Antworten, die mit 'keine' beginnen, werden zu 'Keine Angabe' normalisiert."
+  - "Ausgabe nur respondent_id und q15_party."
+
+outputs:
+  processed_csv: "data/survey/processed/question_15_party.csv"
+  schema_out: |
+    respondent_id (string)
+    q15_party (string; Originaltext oder 'Keine Angabe')
+
+edge_cases:
+  - "Header-Varianzen: verschiedene Formulierungen, NBSP/Sonderzeichen → durch Stichwortsuche abgefangen."
+  - "Leere/NA/„keine …“-Angaben → 'Keine Angabe'."
+  - "Falls die Spalte nicht gefunden wird: klarer Fehlhinweis mit Header-Beispielen."
+
+downstream:
+  - "Deskriptive Crosstabs (z. B. Teilnahmebereitschaft × Parteipräferenz)."
+  - "Optionale Kovariate in Modellen (nur aggregiert)."
+
+links:
+  repo_web_url: "https://github.com/Joe8u/powere.ch/blob/main/steps/step02_preprocessing/survey/preprocess_q15_party.py"
+
+embed_fields:
+  - "title"
+  - "summary"
+  - "processing"
+  - "inputs"
+  - "outputs"
+  - "edge_cases"
+  - "cli"

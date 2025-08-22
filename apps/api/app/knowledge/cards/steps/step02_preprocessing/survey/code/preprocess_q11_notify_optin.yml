@@ -1,0 +1,93 @@
+id: "code:steps/step02_preprocessing/survey/preprocess_q11_notify_optin.py#main"
+doc_type: "code_unit"
+lang: "de"
+title: "Survey Q11: Benachrichtigungs-Opt-in (SMS/App) – Normalisierung & Export"
+step: "step02_preprocessing"
+module: "steps/step02_preprocessing/survey/preprocess_q11_notify_optin.py"
+path: "steps/step02_preprocessing/survey/preprocess_q11_notify_optin.py"
+repo_relpath: "steps/step02_preprocessing/survey/preprocess_q11_notify_optin.py"
+tags: ["preprocessing","survey","csv","text-normalization","robust-column-detection"]
+
+summary: >
+  Liest die Benachrichtigungsfrage (Q11) aus dem Survey-CSV, findet die Spalte robust
+  (tolerant gegenüber NBSP/Varianzen), normalisiert Antworten auf {Ja, Nein, Weiss nicht}
+  und schreibt eine schlanke CSV mit respondent_id + notify_optin.
+
+functions:
+  - "main()"
+  - "preprocess(infile: Path, outfile: Path, debug: bool=False) -> None"
+  - "project_root() -> Path"
+  - "read_raw_csv(path: Path) -> pd.DataFrame"
+  - "find_col_by_names(columns, candidates)"
+  - "fallback_keyword_search(columns) -> str | None"
+  - "normalize_answer(val)"
+
+cli:
+  example: |
+    # aus dem Repo-Root
+    python -m steps.step02_preprocessing.survey.preprocess_q11_notify_optin
+
+    # mit Pfaden/Debug
+    python -m steps.step02_preprocessing.survey.preprocess_q11_notify_optin \
+      --infile "data/survey/raw/Energieverbrauch und Teilnahmebereitschaft an Demand-Response-Programmen in Haushalten.csv" \
+      --outfile "data/survey/processed/question_11_notify_optin.csv" \
+      --debug
+
+inputs:
+  raw_csv: "data/survey/raw/Energieverbrauch und Teilnahmebereitschaft an Demand-Response-Programmen in Haushalten.csv"
+  header_usage: "header=0, skiprows=[1] (SurveyMonkey: 2. Kopfzeile überspringen)"
+  column_detection:
+    primary: "Exakte Titel + slug-basierte Normalisierung (NBSP, Umlaute, Satzzeichen entfernt)"
+    fallback: "Keyword-Score (z.B. 'benachrichtigt', 'sms', 'app', 'stromnetz', 'ausgelastet')"
+
+processing:
+  - "respondent_id robust ermitteln."
+  - "Q11-Spalte per find_col_by_names erkennen; falls nicht gefunden, fallback_keyword_search."
+  - "Antworten trimmen und über normalize_answer auf {Ja, Nein, Weiss nicht} mappen; Rest -> <NA>."
+  - "Ergebnis als CSV mit zwei Spalten ausgeben."
+
+outputs:
+  processed_csv: "data/survey/processed/question_11_notify_optin.csv"
+  schema_out: |
+    respondent_id (string)
+    notify_optin (string: 'Ja' | 'Nein' | 'Weiss nicht' | <NA>)
+
+edge_cases:
+  - "Variierende Frageformulierung / NBSP / Akzent-Varianten: slug-Normalisierung fängt das ab."
+  - "Uneinheitliche Antworten ('y','yes','n','no','wn','dont know'): werden auf die 3 Kanon-Werte gemappt."
+  - "Keine Q11-Spalte erkennbar: Abbruch mit hilfreichem Debug-Dump (bei --debug)."
+  - "Encoding-Fallback: utf-8 → latin-1."
+
+downstream:
+  - "Optional für Segmentierung (Kommunikationsbereitschaft) in späteren Analysen / Dashboards."
+  - "Nicht direkt in den Teilnahme-Modellen (tre05/tre06) genutzt, kann aber für Opt-in-Quoten relevant sein."
+
+router_hints:
+  intent_category: "erklaerung+code"
+  good_for_questions:
+    - "Wie robust wird die Q11-Spalte identifiziert?"
+    - "Welche Antworten werden als 'Weiss nicht' zusammengeführt?"
+    - "Was passiert, wenn mehrere Formulierungen im Export vorkommen?"
+
+links:
+  server_path: "/srv/repos/powere.ch/steps/step02_preprocessing/survey/preprocess_q11_notify_optin.py"
+  repo_web_url: "https://github.com/Joe8u/powere.ch/blob/main/steps/step02_preprocessing/survey/preprocess_q11_notify_optin.py"
+
+embed_fields:
+  - "title"
+  - "summary"
+  - "processing"
+  - "inputs"
+  - "outputs"
+  - "edge_cases"
+  - "cli"
+  - "downstream"
+  - "body"
+
+body: |
+  # Hinweise
+  - Die Spaltenerkennung nutzt zunächst exakte Matches und fällt dann auf eine slug-basierte
+    Normalisierung zurück (Entfernung von NBSP/Sonderzeichen). Als letzte Stufe bewertet
+    die Keyword-Suche mehrere Token-Sets (mind. 2 Treffer nötig).
+  - `normalize_answer` bündelt gängige Varianten (z. B. 'y/yes', 'n/no', 'wn', 'don't know')
+    auf die drei Zielkategorien. Unklare/leerere Eingaben werden zu `<NA>`.

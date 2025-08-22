@@ -1,0 +1,101 @@
+id: "code:steps/step06_sozio_technisches_simulationsmodell/simulation/tre06_grid_shiftable_energy.py#main"
+doc_type: "code_unit"
+title: "tre06 – Netzsicht: maximal verschiebbare Energie je Event (TRE × JASM × Survey)"
+lang: "de"
+path: "steps/step06_sozio_technisches_simulationsmodell/simulation/tre06_grid_shiftable_energy.py"
+repo_relpath: "steps/step06_sozio_technisches_simulationsmodell/simulation/tre06_grid_shiftable_energy.py"
+step: "step06_sozio_technisches_simulationsmodell"
+module: "simulation"
+tags: ["simulation","tre","mFRR","jasm","flexibility","survey","grid","utc","15min"]
+summary: >
+  Erweitert tre05 um die Netzsicht: Für gerankte TRE-Tage (tre01–tre04) werden Eventfenster
+  simuliert und die maximal verschiebbare Energie im Netzgebiet berechnet. Die Grenze ist das
+  Minimum aus (a) verfügbarem Geräteverbrauch im Fenster bei Teilnahme und (b) Haushalts-Cap
+  (Teilnehmer × event_kwh_cap je Haushalt). Zusätzlich werden Vergütungs-Caps, Teilnahmequote,
+  und bindende Restriktion ausgewiesen.
+functions:
+  - "main()  # CLI-Entry"
+  - "_to_utc_index(idx, local_tz='Europe/Zurich')"
+  - "_get_window_series(df, start_utc, end_utc, col)"
+defaults:
+  year: 2024
+  top: 150
+  appliance: "Geschirrspüler"
+  threshold_pct: 70.0
+  tz: "Europe/Zurich"
+  fx: null
+  simulate_days: 3
+  offsets_h: [2.0, 1.0, 0.0]
+  durations_h: [1.5, 3.0, 4.5]
+  cycle_kwh: 1.44
+  cycle_hours: 1.5
+  max_event_hours_paid: 3.0
+  monthly_kwh: 43.2
+  daily_kwh: null
+  base_comp_chf_kwh: 0.29
+  cap_participation: 0.629
+  max_comp_pct: 62.9
+  households: 100000
+inputs:
+  data_sources:
+    - "TRE Jahr: load_regulation_range(start, end) → avg_price_eur_mwh → tre_price_chf_kwh"
+    - "JASM Jahr: load_jasm_year_profile(appliances=[name], start, end, year, group=True)"
+    - "Umfrage: prepare_survey_flexibility_data() → Grundlage für participation calculator"
+  pipeline_dependencies:
+    - "tre01: find_top_tre_price_periods(YEAR, n_top, fx)"
+    - "tre03: compute_shortest_energy_windows(df_jasm_day, col, threshold_pct)"
+    - "tre03: identify_dr_candidate_days(tre_peaks, windows)"
+    - "tre04: calculate_ranking_metrics_for_days(candidate_days, tre_peaks, windows)"
+  params_effects:
+    - "households: Größe des adressierbaren Netzes/Programms"
+    - "offsets/durations: definieren Eventfenster um den Referenz-Peak"
+    - "cycle_* & max_event_hours_paid: leiten event_kwh_cap je Haushalt her"
+    - "base_comp_chf_kwh, max_comp_pct, cap_participation: steuern Angebots-% & Teilnahme"
+process:
+  phases:
+    - "Phase 0: TRE & JASM (UTC, 15-min, MWh/Intervall) laden."
+    - "Phase 1: Survey aufbereiten."
+    - "Phase 2: tre01–tre04 (Peaks → Fenster → Kandidaten → Ranking)."
+    - "Phase 3: Simulation für Top-Tage × (Offsets × Dauern) mit Angebots-Iteration."
+    - "Phase 4: Reporting (Bestes Fenster pro Tag)."
+    - "Phase 5: optional CSV-Export (Detail & Summary)."
+outputs:
+  dataframe_detailed: "Zeile je (Tag × Offset × Dauer) inkl. Teilnahme, Caps und verschiebbarer Energie."
+  dataframe_summary:  "Bestes Fenster je Tag (max shiftable_energy_mwh) mit bindender Restriktion."
+csv_exports:
+  dir: "data/market/processed/simulation"
+  detailed_pattern: "tre06_shiftable_energy_detailed_<slug>_<year>_top<T>_thr<THR>[_fx<FX>].csv"
+  summary_pattern:  "tre06_shiftable_energy_summary_<slug>_<year>_top<T>_thr<THR>[_fx<FX>].csv"
+  format: "sep=';', decimal='.'"
+depends_on:
+  - "steps/step06_sozio_technisches_simulationsmodell/dr_windows/tre01_peak_price_finder.py::find_top_tre_price_periods"
+  - "steps/step06_sozio_technisches_simulationsmodell/dr_windows/tre03_dr_day_identifier.py::compute_shortest_energy_windows"
+  - "steps/step06_sozio_technisches_simulationsmodell/dr_windows/tre03_dr_day_identifier.py::identify_dr_candidate_days"
+  - "steps/step06_sozio_technisches_simulationsmodell/dr_windows/tre04_dr_day_ranker.py::calculate_ranking_metrics_for_days"
+  - "steps/step04_dataloaders/dataloaders/market/tertiary_regulation_loader.py::load_regulation_range"
+  - "steps/step04_dataloaders/dataloaders/lastprofile/__init__.py::load_appliances"
+  - "steps/step06_sozio_technisches_simulationsmodell/flexibility_potential/a_survey_data_preparer.py::prepare_survey_flexibility_data"
+  - "steps/step06_sozio_technisches_simulationsmodell/flexibility_potential/b_participation_calculator.py::calculate_participation_metrics"
+edge_cases:
+  - "Kein gemeinsamer 15-min-Raster im Fenster → Zeile mit binding_constraint='no_data'."
+  - "DST/Zeitzonen: _to_utc_index nutzt ambiguous='infer' & nonexistent='shift_forward'."
+  - "0 Haushalte oder sehr kleiner Teilnehmer-Cap → hh_limit_mwh kann bindend werden."
+  - "tre04 Key-Kompatibilität: 'max_tre_price_in_window' vs. 'max_srl_price_in_window' wird robust gehandhabt."
+router_hints:
+  intent_category: "erklärung+berechnung"
+  good_for_questions:
+    - "Welche Restriktion ist bindend: Fensterlimit oder HH-Cap?"
+    - "Wie stark beeinflusst die Haushaltszahl das Ergebnis?"
+    - "Wie entstehen event_kwh_cap und event_max_comp_chf_per_hh?"
+embed_fields: ["title","summary","process","inputs","outputs","edge_cases","body"]
+body: |
+  # Kernidee
+  Wie tre05, aber mit Netzausblick: Die effektiv verschiebbare Energie ergibt sich als
+  Minimum aus (a) JASM-Energie im Eventfenster bei finaler Teilnahmequote und (b) per-HH-Cap
+  aggregiert über alle erreichbaren Haushalte. Reporting zeigt auch, welche Restriktion bindend ist.
+cli_examples:
+  - "python -m steps.step06_sozio_technisches_simulationsmodell.simulation.tre06_grid_shiftable_energy --year 2024 --top 150 --appliance 'Geschirrspüler' --threshold 70 --households 250000 --offsets 2 1 0 --durations 1.5 3 4.5 --save"
+links:
+  repo_relpath: "steps/step06_sozio_technisches_simulationsmodell/simulation/tre06_grid_shiftable_energy.py"
+  server_path: "/srv/repos/powere.ch/steps/step06_sozio_technisches_simulationsmodell/simulation/tre06_grid_shiftable_energy.py"
+  repo_web_url: "https://github.com/Joe8u/powere.ch/blob/main/steps/step06_sozio_technisches_simulationsmodell/simulation/tre06_grid_shiftable_energy.py"

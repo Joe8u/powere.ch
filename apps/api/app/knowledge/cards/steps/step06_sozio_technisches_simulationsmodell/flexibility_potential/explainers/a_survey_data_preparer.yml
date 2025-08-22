@@ -1,0 +1,26 @@
+id: "explainer:steps/step06_sozio_technisches_simulationsmodell/flexibility_potential/a_survey_data_preparer"
+doc_type: "explainer"
+title: "Wie aus Q9/Q10 verwertbare Flex-Daten werden"
+lang: "de"
+audience: "Produkt/Research"
+summary: >
+  Diese Karte erklärt, wie wir heterogene Survey-Rohdaten (Q9 Nichtnutzung, Q10 Anreiz/Teilnahme)
+  vereinheitlichen und in ein gemeinsames Schema überführen, das von tre05/tre06 direkt verwendet wird.
+key_points:
+  - "Mehrere Layouts werden erkannt: *_choice/_pct, Gerätespalten oder respondent-level."
+  - "Q9-Textantworten werden auf Stunden gemappt (z. B. '3–6h' → 4.5 h)."
+  - "Q10: yes_fixed (0.0 %) vs. yes_conditional (numerischer Zuschlag), 'Nein' bleibt no."
+  - "Fehlende Q10-Infos markieren wir explizit ('unknown_choice_q10_missing')."
+  - "Gerätenamen werden kanonisiert (z. B. TV-Sonderfall)."
+downstream_impact:
+  - "tre05/tre06 lesen nur noch die Normalform und sind unempfindlich gegen Survey-Layoutvarianten."
+  - "Eine saubere device-Normalisierung erhöht Match mit JASM-Geräten."
+faq:
+  - q: "Was passiert, wenn Q9 leer ist?"
+    a: "Es kommen nur Q10-Felder durch; max_duration bleibt NaN."
+  - q: "Und wenn nur Prozentangaben ohne 'Ja' stehen?"
+    a: "Wird als yes_conditional mit dem gefundenen Prozentsatz interpretiert."
+links:
+  to_code_card: "code:steps/step06_sozio_technisches_simulationsmodell/flexibility_potential/a_survey_data_preparer.py#prepare_survey_flexibility_data"
+  repo_web_url: "https://github.com/Joe8u/powere.ch/blob/main/steps/step06_sozio_technisches_simulationsmodell/flexibility_potential/a_survey_data_preparer.py"
+embed_fields: ["title","summary","key_points","downstream_impact","faq"]

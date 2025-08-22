@@ -1,0 +1,114 @@
+id: "code:steps/step04_dataloaders/dataloaders/market/dr_windows_loader.py#module"
+doc_type: "code_unit"
+lang: "de"
+title: "Dataloader: DR-Fenster & Rankings (tre01–tre04)"
+step: "step04_dataloaders"
+module: "steps/step04_dataloaders/dataloaders/market/dr_windows_loader.py"
+path: "steps/step04_dataloaders/dataloaders/market/dr_windows_loader.py"
+repo_relpath: "steps/step04_dataloaders/dataloaders/market/dr_windows_loader.py"
+tags: ["dataloader","market","DR-windows","tre01","tre02","tre03","tre04","fx","file-io"]
+
+summary: >
+  Loader für die in Step 06 erzeugten DR-Artefakte (unter data/market/processed/dr_windows).
+  Unterstützt Top-Preisperioden (tre01), JASM-Teilmatrix (tre02), identifizierte
+  Energie-Fenster & DR-Tage (tre03) sowie Tages-Rankings (tre04). Robust gegen
+  unterschiedliche Spaltennamen und alte Dateinamensvarianten; optionale FX-Varianten werden berücksichtigt.
+
+storage_layout:
+  base_dir: "data/market/processed/dr_windows"
+  patterns:
+    tre01_top_periods: "tre_top_periods_<YEAR>[ _fx<FX> ].csv"
+    tre02_jasm_timeseries: "tre_jasm_<slug>_<YEAR>_top<TOP>[ _fx<FX> ].csv"
+    tre03_windows: "tre_windows_<slug>_<YEAR>_top<TOP>_thr<THR>[ _fx<FX> ].csv"
+    tre03_dr_days: "tre_dr_days_<slug>_<YEAR>_top<TOP>_thr<THR>[ _fx<FX> ].csv"
+    tre04_ranked_days: "tre_ranked_days_<slug>_<YEAR>_top<TOP>_thr<THR>[ _fx<FX> ].csv (fallback: *_thr<THR>_.csv)"
+
+helpers:
+  - "_slugify(name): Gerätestring → dateiname-tauglicher Slug"
+  - "_fx_tag(fx): ' _fxX.YY' wenn FX ≠ 1.0; sonst leer"
+  - "_err_with_available(pattern, available): FileNotFoundError mit Auflistung vorhandener Dateien"
+  - "_parse_time('HH:MM[:SS]') → datetime.time"
+  - "_resolve_col(df, candidates): wähle erste existierende Spalte aus Kandidatenliste"
+  - "PROJECT_ROOT-Erkennung via steps-Verzeichnis"
+
+functions:
+  - name: "list_top_periods_files(year) -> List[Path]"
+    desc: "Liste aller tre01-Topperioden-Dateien für ein Jahr."
+  - name: "load_tre_top_periods(year, fx=None) -> pd.DataFrame"
+    desc: "Liest tre01; parsed 'timestamp' und gibt DataFrame mit DatetimeIndex (naiv) zurück."
+  - name: "list_jasm_files(year, appliance=None) -> List[Path]"
+    desc: "Finde tre02-JASM-Teilmatrix-Dateien (optional gefiltert nach Gerät)."
+  - name: "load_tre_jasm_timeseries(year, appliance, top=None, fx=None) -> pd.DataFrame"
+    desc: >
+      Lädt tre02 Timeseries (Index=timestamp). Wenn top angegeben ist, wird exakt
+      diese Datei bevorzugt; sonst wird die Variante mit dem größten TOP (und ggf.
+      passendem FX) gewählt.
+  - name: "list_windows_files(year, appliance=None) -> List[Path]"
+    desc: "Finde tre03-Fensterdateien."
+  - name: "load_tre_windows(year, appliance, top, thr, fx=None, *, as_dict=False)"
+    desc: >
+      Lädt tre03-Fenster. Erkennt flexible Spaltennamen:
+      date|day|day_date, start|appliance_window_start|window_start|start_time,
+      end|appliance_window_end|window_end|end_time, duration_h, energy_mwh|…,
+      energy_pct|…. Rückgabe DataFrame (standard) oder dict[date]=(start_time, end_time, sum_mwh, pct).
+  - name: "list_dr_days_files(year, appliance=None) -> List[Path]"
+    desc: "Finde tre03-DR-Tage-Dateien."
+  - name: "load_tre_dr_days(year, appliance, top, thr, fx=None) -> List[date]"
+    desc: "Lädt tre03-DR-Tage als Python date-Liste."
+  - name: "list_ranked_days_files(year, appliance=None) -> List[Path]"
+    desc: "Finde tre04-Ranking-Dateien."
+  - name: "load_tre_ranked_days(year, appliance, top, thr, fx=None) -> pd.DataFrame"
+    desc: >
+      Lädt tre04-Ranking. 'date' wird geparst. Unterstützt neue Benennung
+      (…_thrXX.csv) und Legacy (…_thrXX_.csv).
+
+io_contracts:
+  timestamps: "CSV enthält 'timestamp' (naiv; keine TZ) für tre01/tre02"
+  date_strings: "tre03-Fenster halten Datum + getrennte Start/Ende-Uhrzeit (HH:MM[:SS])"
+  errors: "Bei Nichtauffinden wird FileNotFoundError mit verfügbarem Bestand geworfen."
+
+usage:
+  examples: |
+    import datetime as dt
+    from steps.step04_dataloaders.dataloaders.market.dr_windows_loader import *
+
+    # Top-Perioden (tre01)
+    top = load_tre_top_periods(2024, fx=0.97)
+
+    # JASM-Zeitreihe (tre02) für Geschirrspüler, bestes verfügbares TOP
+    jasm = load_tre_jasm_timeseries(2024, "Geschirrspüler", fx=1.00)
+
+    # Fenster (tre03) als DataFrame
+    win_df = load_tre_windows(2024, "Geschirrspüler", top=150, thr=70, fx=None)
+
+    # Fenster (tre03) als dict[date] -> (time_from, time_to, mwh, pct)
+    win_dict = load_tre_windows(2024, "Geschirrspüler", 150, 70, as_dict=True)
+
+    # DR-Tage (tre03)
+    dr_days = load_tre_dr_days(2024, "Geschirrspüler", 150, 70)
+
+    # Ranking (tre04)
+    ranked = load_tre_ranked_days(2024, "Geschirrspüler", 150, 70)
+
+edge_cases:
+  - "FX: Ist eine exakte FX-Datei nicht vorhanden, werden verfügbare Dateien gelistet (Fehlermeldung mit Bestand)."
+  - "Alte Dateinamen: tre04 unterstützt Legacy-Suffix '_thrXX_.csv'."
+  - "Zeitformat: Start/Ende werden tolerant als 'HH:MM' oder 'HH:MM:SS' geparst."
+  - "Spaltenvarianten: _resolve_col erlaubt flexible Headernamen; bei fehlendem date/start/end → ValueError."
+
+implementation_notes:
+  - "BASE_DIR = data/market/processed/dr_windows; Projekt-Root wird relativ zu 'steps' ermittelt."
+  - "Dateien werden mit pandas gelesen; bei Zeitserien wird 'timestamp' zu Index gesetzt und sortiert."
+  - "Gerätenamen werden für Dateipfade mittels _slugify normalisiert (Umlaute → ae/oe/ue/ss, Non-Alnum → '_')."
+
+links:
+  repo_web_url: "https://github.com/Joe8u/powere.ch/blob/main/steps/step04_dataloaders/dataloaders/market/dr_windows_loader.py"
+
+embed_fields:
+  - "title"
+  - "summary"
+  - "storage_layout"
+  - "functions"
+  - "usage"
+  - "edge_cases"
+  - "implementation_notes"

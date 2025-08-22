@@ -1,0 +1,40 @@
+id: "artifact:steps/step06_sozio_technisches_simulationsmodell/simulation/tre05_simulation_results_csv"
+doc_type: "data_artifact"
+title: "Artefakt: tre05 – Simulationsergebnisse (Flexibilitätspotenzial)"
+lang: "de"
+location_pattern: "data/market/processed/simulation/tre05_simulation_results_{slug}_{year}_top{T}_thr{THR}[_fx{FX}].csv"
+format: "CSV; Separator ';'; Dezimalpunkt '.'"
+tags: ["simulation","results","flexibility","events","caps","participation"]
+summary: >
+  Ergebniszeilen je (Tag × Offset × Dauer) mit ökonomischen Metriken, Caps und
+  Teilnahmequoten. Grundlage: TRE-Preise (CHF/kWh), JASM-Energie (MWh/15min),
+  Umfragemodell für Teilnahme.
+schema:
+  columns:
+    - "event_date: YYYY-MM-DD"
+    - "rank_step4: int (Rang aus tre04)"
+    - "reference_peak_utc: 'YYYY-MM-DD HH:MM'"
+    - "event_start_utc: 'YYYY-MM-DD HH:MM'"
+    - "event_duration_h: float"
+    - "pre_peak_offset_h: float"
+    - "avg_tre_price_in_window_chf_kwh: float"
+    - "event_hours_paid_cap: float"
+    - "event_kwh_cap: float"
+    - "event_max_comp_chf_per_hh: float"
+    - "event_max_comp_pct_of_month: float"
+    - "konvergierter_komp_prozentsatz: float (in %)"
+    - "rohe_teilnahmequote_vor_cap: float (0..1)"
+    - "finale_teilnahmequote: float (0..1)"
+    - "kompensations_basis_energie_kwh: float"
+    - "kompensations_basis_kosten_chf: float"
+    - "total_verschobene_energie_mwh: float"
+    - "total_tre_wert_chf: float"
+    - "auszahlung_pro_kwh_verschoben_chf: float"
+    - "kompensation_pro_haushalt_pro_event_chf: float"
+    - "iterations_to_converge: int"
+    - "converged: bool"
+    - "error_message: str|null"
+notes:
+  - "Bei leerem Intervall-Schnitt werden Kennzahlen mit NaN/0 befüllt und error_message gesetzt."
+  - "energy caps: min(Dauer, MAX_EVENT_H, cycle_hours) → kWh-Cap über durchschnittliche Zyklusleistung."
+embed_fields: ["title","summary","schema","notes"]

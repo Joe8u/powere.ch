@@ -1,0 +1,98 @@
+id: "code:steps/step02_preprocessing/survey/preprocess_q4_accommodation.py#main"
+doc_type: "code_unit"
+lang: "de"
+title: "Survey Q4 (Unterkunftsart): Extraktion & Kanonisierung"
+step: "step02_preprocessing"
+module: "steps/step02_preprocessing/survey/preprocess_q4_accommodation.py"
+path: "steps/step02_preprocessing/survey/preprocess_q4_accommodation.py"
+repo_relpath: "steps/step02_preprocessing/survey/preprocess_q4_accommodation.py"
+tags: ["preprocessing","survey","demografie","unterkunft","csv"]
+
+summary: >
+  Liest das Survey-CSV, findet 'respondent_id' und die Q4-Frage
+  „In welcher Art von Unterkunft wohnen Sie?“ inklusive nachfolgender Options-Spalten,
+  normalisiert pro Zeile die erste gültige Auswahl auf eine von vier Kanon-Kategorien
+  {Wohnung (Eigentum), Wohnung (Miete), Haus (Miete), Haus (Eigentum)} und schreibt
+  `data/survey/processed/question_4_accommodation.csv`.
+
+functions:
+  - "main()"
+  - "preprocess(infile: Path, outfile: Path) -> None"
+  - "project_root() -> Path"
+  - "read_raw_csv(path: Path) -> pd.DataFrame"
+  - "find_col_by_names(columns, candidates) -> Optional[str]"
+  - "normalize_accommodation(val: Optional[str]) -> Optional[str]"
+  - "collect_q4_block(df: pd.DataFrame, q_col_name: str, extra_cols_after: int = 6) -> list[str]"
+  - "choose_from_block(row: pd.Series, cols: list[str]) -> Optional[str]"
+
+cli:
+  example: |
+    # aus dem Repo-Root:
+    python -m steps.step02_preprocessing.survey.preprocess_q4_accommodation
+
+    # mit expliziten Pfaden:
+    python -m steps.step02_preprocessing.survey.preprocess_q4_accommodation \
+      --infile "data/survey/raw/Energieverbrauch und Teilnahmebereitschaft an Demand-Response-Programmen in Haushalten.csv" \
+      --outfile "data/survey/processed/question_4_accommodation.csv"
+
+inputs:
+  raw_csv: "data/survey/raw/Energieverbrauch und Teilnahmebereitschaft an Demand-Response-Programmen in Haushalten.csv"
+  column_detection:
+    respondent_id_candidates: ["respondent_id","Respondent ID","respondent id"]
+    q4_question_candidates:
+      - "In welcher Art von Unterkunft wohnen Sie?"
+      - "Unterkunft"
+      - "Accommodation"
+      - "Art von Unterkunft"
+  header_note: "SurveyMonkey: zweite Headerzeile wird mit skiprows=[1] ignoriert"
+  encoding_fallback: ["utf-8","latin-1"]
+  block_selection: "Frage-Spalte + die nächsten 6 Spalten (decken Options-/Unnamed-Spalten ab)."
+
+processing:
+  - "Q4-Block bestimmen: Frage-Spalte und die 6 nachfolgenden Spalten einsammeln."
+  - "Pro Zeile in Block-Reihenfolge die erste gültige Auswahl wählen."
+  - "normalize_accommodation: robuste Heuristik (Wohnung/Haus × Miete/Eigentum) auf 4 Kanon-Kategorien."
+  - "Strings als nullable string speichern (NA bleibt <NA>)."
+
+outputs:
+  processed_csv: "data/survey/processed/question_4_accommodation.csv"
+  schema_out: |
+    respondent_id (string)
+    accommodation_type (string | <NA>)
+
+edge_cases:
+  - "Mehrere Spalten mit Auswahl: es zählt die erste nicht-leere (linksbündig)."
+  - "Freitext/abweichende Schreibweisen: Heuristik mappt Stichwörter (wohnung/haus, miete/eigentum)."
+  - "Keine passende Zuordnung: accommodation_type bleibt <NA>."
+  - "Fehlende Inputdatei: klarer Fehler mit Exit-Code 1."
+
+router_hints:
+  intent_category: "erklaerung+code"
+  good_for_questions:
+    - "Wie werden Misch-/Freitext-Antworten auf die 4 Kategorien gemappt?"
+    - "Wozu dient extra_cols_after=6 beim Einsammeln des Fragenblocks?"
+    - "Was passiert bei mehreren Markierungen in einer Zeile?"
+    - "Wie sieht das Output-Schema aus?"
+
+links:
+  server_path: "/srv/repos/powere.ch/steps/step02_preprocessing/survey/preprocess_q4_accommodation.py"
+  repo_web_url: "https://github.com/Joe8u/powere.ch/blob/main/steps/step02_preprocessing/survey/preprocess_q4_accommodation.py"
+
+embed_fields:
+  - "title"
+  - "summary"
+  - "processing"
+  - "inputs"
+  - "outputs"
+  - "edge_cases"
+  - "cli"
+  - "body"
+
+body: |
+  # Hinweise
+  - Die Block-Logik ist bewusst generisch für SurveyMonkey-Exporte mit
+    'Unnamed: x'-Optionsspalten. Falls euer Export mehr als 6 Folge-Spalten nutzt,
+    kann `extra_cols_after` im Code erhöht werden.
+  - Die vier Kanon-Kategorien sind in `FOUR_CANON` zentral definiert und leicht erweiterbar.
+  - Die Normalisierung ist rein textbasiert (lowercase/substring). Für strengere Mappings
+    könnte man später einen expliziten Synonym-Katalog hinterlegen.

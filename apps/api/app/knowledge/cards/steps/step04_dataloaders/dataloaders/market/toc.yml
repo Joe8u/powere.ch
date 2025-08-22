@@ -1,0 +1,7 @@
+id: "steps/step04_dataloaders/dataloaders/market"
+doc_type: "toc"
+title: "Step 04 – Dataloaders – Market"
+lang: "de"
+children:
+  - "code:steps/step04_dataloaders/dataloaders/market/dr_windows_loader.py#module"
+  - "code:steps/step04_dataloaders/dataloaders/market/tertiary_regulation_loader.py#module"

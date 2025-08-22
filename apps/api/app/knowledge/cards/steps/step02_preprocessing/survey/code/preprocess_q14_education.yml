@@ -1,0 +1,77 @@
+id: "code:steps/step02_preprocessing/survey/preprocess_q14_education.py#main"
+doc_type: "code_unit"
+lang: "de"
+title: "Survey Q14: Höchster Bildungsabschluss – Normalisierung"
+step: "step02_preprocessing"
+module: "steps/step02_preprocessing/survey/preprocess_q14_education.py"
+path: "steps/step02_preprocessing/survey/preprocess_q14_education.py"
+repo_relpath: "steps/step02_preprocessing/survey/preprocess_q14_education.py"
+tags: ["preprocessing","survey","csv","categorical-cleaning"]
+
+summary: >
+  Extrahiert Q14 („Was ist Ihr höchster Bildungsabschluss?“) und normalisiert freie/abweichende Eingaben
+  auf kompakte Kanon-Kategorien (z. B. Bachelor, Master, Doktorat/PhD, Fachhochschule, Universität/ETH,
+  Berufsausbildung/Lehre/Maturität, Andere, Keine Angabe). Leere/NA-ähnliche Antworten werden zu „Keine Angabe“.
+
+functions:
+  - "preprocess_q14_education(raw_csv: str, out_csv: str) -> None"
+  - "_read_csv_any_encoding(path: str) -> pd.DataFrame"
+  - "_find_col_contains(df: pd.DataFrame, needle: str) -> str | None"
+  - "_normalize_education(x: str) -> str"
+
+cli:
+  example: |
+    # aus dem Repo-Root
+    python -m steps.step02_preprocessing.survey.preprocess_q14_education
+
+    # mit Pfaden
+    python -m steps.step02_preprocessing.survey.preprocess_q14_education \
+      "data/survey/raw/Energieverbrauch und Teilnahmebereitschaft an Demand-Response-Programmen in Haushalten.csv" \
+      "data/survey/processed/question_14_education.csv"
+
+inputs:
+  raw_csv: "data/survey/raw/Energieverbrauch und Teilnahmebereitschaft an Demand-Response-Programmen in Haushalten.csv"
+  header_usage: "header=0, skiprows=[1] (SurveyMonkey: zweite Kopfzeile übersprungen)"
+  id_column: "respondent_id (Pflicht)"
+  q14_detection: "Spaltensuche via Teilstring 'Bildungsabschluss' (case-insensitive)."
+
+processing:
+  - "Trim/NA-Normalisierung (leere, nan, n/a -> 'Keine Angabe')."
+  - "Regex-basierte Mappings in definierter Reihenfolge (spezifisch → allgemein):"
+  - "  • Doktorat/PhD: (doktor|ph.?d|dr.)"
+  - "  • Master: (\\bmaster\\b|msc|m\\.a\\.)"
+  - "  • Bachelor: (\\bbachelor\\b|bsc|b\\.a\\.)"
+  - "  • Fachhochschule: (fachhochschule|\\bfh\\b)"
+  - "  • Universität/ETH: (universit|eth)"
+  - "  • Berufsausbildung/Lehre/Maturität: (berufsausbildung|lehre|matur)"
+  - "  • Andere: (\\bander)"
+  - "  • Keine Angabe: (keine angabe|weiss/weiß nicht|prefer not)"
+  - "Fällt kein Muster an: Originaltext bleibt (für spätere QA)."
+
+outputs:
+  processed_csv: "data/survey/processed/question_14_education.csv"
+  schema_out: |
+    respondent_id (string)
+    q14_education (string; kanonisiert oder Originaltext)
+
+edge_cases:
+  - "Mehrsprachige/verkürzte Labels (e.g. 'ETH MSc') werden korrekt zugeordnet."
+  - "NBSP/Sonderzeichen im Header – robust durch Teilstring-Suche."
+  - "Nicht gematchte Spezialabschlüsse (z. B. CAS/DAS/MAS/MBA) bleiben als Originaltext erhalten."
+
+downstream:
+  - "Deskriptive Auswertungen & Crosstabs (z. B. Teilnahmebereitschaft × Bildung)."
+  - "Kovariate in Teilnahme-/Akzeptanzmodellen (step06)."
+
+links:
+  server_path: "/srv/repos/powere.ch/steps/step02_preprocessing/survey/preprocess_q14_education.py"
+  repo_web_url: "https://github.com/Joe8u/powere.ch/blob/main/steps/step02_preprocessing/survey/preprocess_q14_education.py"
+
+embed_fields:
+  - "title"
+  - "summary"
+  - "processing"
+  - "inputs"
+  - "outputs"
+  - "edge_cases"
+  - "cli"

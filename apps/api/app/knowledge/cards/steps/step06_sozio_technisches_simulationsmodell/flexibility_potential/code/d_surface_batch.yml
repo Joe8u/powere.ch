@@ -1,0 +1,84 @@
+id: "code:steps/step06_sozio_technisches_simulationsmodell/flexibility_potential/d_surface_batch.py#batch_generate_surfaces"
+doc_type: "code_unit"
+title: "Surface-Batch: 3D-Teilnahmeflächen für mehrere Geräte (einheitliche Farbskala)"
+lang: "de"
+path: "steps/step06_sozio_technisches_simulationsmodell/flexibility_potential/d_surface_batch.py"
+repo_relpath: "steps/step06_sozio_technisches_simulationsmodell/flexibility_potential/d_surface_batch.py"
+step: "step06_sozio_technisches_simulationsmodell"
+module: "flexibility_potential"
+tags: ["survey","visualization","plotly","batch","participation","Q9","Q10"]
+summary: >
+  Erzeugt für eine Geräte-Liste interaktive 3D-Surface-Plots (Teilnahmequote in %)
+  und wählt eine globale Farbskalen-Obergrenze (cmax) über alle Geräte, damit
+  die Plots vergleichbar sind.
+functions:
+  - "batch_generate_surfaces(out_dir, max_incentive_pct, incentive_steps, max_event_duration_h, appliances) -> None"
+  - "_durations_for_device(df, device, max_h) -> np.ndarray"
+  - "_max_rate_for_device(df, device, durations, incentives) -> float"
+inputs:
+  dataframe: "prepare_survey_flexibility_data() – vereint Q9 (max Dauer) und Q10 (Incentives)."
+parameters:
+  out_dir: "Zielordner für HTML-Plots (Default: steps/.../figures)."
+  max_incentive_pct: "Max. Incentive auf X-Achse (Default 50.0)."
+  incentive_steps: "Anzahl X-Samples (Default 11)."
+  max_event_duration_h: "Max. Dauer auf Y-Achse (Default 30.0 h)."
+  appliances: "Optionale Geräteliste; sonst aus Daten, Fallback = APPLIANCES."
+process:
+  - "Survey-Daten laden (prepare_survey_flexibility_data)."
+  - "Zielgeräte bestimmen (Parameter → Daten → Fallback)."
+  - "Incentive-Raster (linspace) vorbereiten."
+  - "Pro Gerät zulässige Dauern aus Q9 ableiten."
+  - "Pro Gerät ein lokales Z-Max finden (Iterationen über Dauer×Incentive)."
+  - "Globales cmax = aufgerundetes Maximum aller Z-Maxima (auf 5er-Schritte)."
+  - "Für jedes Gerät SurfaceParams mit globaler Farbskala setzen und HTML via generate_3d_flexibility_surface_plot schreiben."
+outputs:
+  saved_html: "Eine HTML-Datei je Gerät (interaktiver Plot)."
+edge_cases:
+  - "Leerer/teilweise leerer Survey → geringe/keine Dauern → Fallback-Dauern [0.5,1.5,3.0]."
+  - "Gerät ohne Beobachtungen → Plot existiert, Aussagekraft limitiert."
+  - "Umlaut-/Leerzeichen im Dateinamen → Ersatz nur für Leerzeichen (via replace(' ', '_'))."
+  - "Große Stichprobe × viele Steps → Laufzeit steigt; Steps reduzieren."
+performance_notes:
+  - "Komplexität ~ O(#Geräte × #Dauern × #Incentives × Stichprobe). Für schnelle Previews incentive_steps klein halten (11–21)."
+  - "Optional parallelisieren (pro Gerät) oder Ergebnisse von calculate_participation_metrics cachen."
+router_hints:
+  intent_category: "visualisierung+batch"
+  good_for_questions:
+    - "Erzeuge vergleichbare Flächen für alle Geräte."
+    - "Welche Farbskala soll global verwendet werden?"
+    - "Wie sieht die Teilnahmequote pro Gerät bei gleichem Incentive-Band aus?"
+usage_examples:
+  - |
+    from steps.step06_sozio_technisches_simulationsmodell.flexibility_potential.d_surface_batch import batch_generate_surfaces
+    # Alle Geräte aus Daten, 0–40% Incentive, 21 Schritte, max Dauer 30h
+    batch_generate_surfaces(
+        out_dir="data/market/processed/simulation/figures",
+        max_incentive_pct=40.0,
+        incentive_steps=21,
+        max_event_duration_h=30.0,
+        appliances=None
+    )
+  - |
+    # Nur zwei Geräte, coarser Raster
+    batch_generate_surfaces(
+        out_dir="data/market/processed/simulation/figures",
+        max_incentive_pct=30.0,
+        incentive_steps=11,
+        appliances=["Geschirrspüler","Waschmaschine"]
+    )
+depends_on:
+  - "steps/step06_sozio_technisches_simulationsmodell/flexibility_potential/a_survey_data_preparer.py#prepare_survey_flexibility_data"
+  - "steps/step06_sozio_technisches_simulationsmodell/flexibility_potential/b_participation_calculator.py#calculate_participation_metrics"
+  - "steps/step06_sozio_technisches_simulationsmodell/flexibility_potential/c_flexibility_visualizer.py#generate_3d_flexibility_surface_plot"
+links:
+  server_path: "/srv/repos/powere.ch/apps/api/app/steps/step06_sozio_technisches_simulationsmodell/flexibility_potential/d_surface_batch.py"
+  repo_relpath: "steps/step06_sozio_technisches_simulationsmodell/flexibility_potential/d_surface_batch.py"
+  repo_web_url: "https://github.com/Joe8u/powere.ch/blob/main/steps/step06_sozio_technisches_simulationsmodell/flexibility_potential/d_surface_batch.py"
+embed_fields: ["title","summary","process","inputs","parameters","outputs","edge_cases","performance_notes","usage_examples","body"]
+body: |
+  # Interpretation
+  - Plots werden mit einer *gemeinsamen* Farbskala erzeugt, damit Geräte visuell vergleichbar sind.
+  - cmax wird als aufgerundetes Maximum aller Geräte-Maxima (in %-Punkten) gewählt.
+
+  # Pfadempfehlung
+  - Für konsistente Artefakte empfehlen wir `out_dir="data/market/processed/simulation/figures"` zu verwenden.

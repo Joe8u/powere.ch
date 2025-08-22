@@ -1,0 +1,7 @@
+id: "steps/step01_raw_data/lastprofile"
+doc_type: "toc"
+title: "Rohdaten: Lastprofile (JASM)"
+lang: "de"
+children:
+  - "doc:steps/step01_raw_data/lastprofile/jasm_household_daily_load_curves.yml#page"
+  - "doc:steps/step01_raw_data/lastprofile/jasm_ownership_of_appliances.yml#page"

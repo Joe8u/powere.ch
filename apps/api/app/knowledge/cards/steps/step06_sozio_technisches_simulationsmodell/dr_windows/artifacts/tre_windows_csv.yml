@@ -1,0 +1,19 @@
+id: "artifact:steps/step06_sozio_technisches_simulationsmodell/dr_windows/tre_windows_csv"
+doc_type: "data_artifact"
+title: "Artefakt: Fenster je Tag – tre_windows_<slug>_<year>_top<T>_thr<THR>[_fx<FX>].csv"
+lang: "de"
+location_pattern: "data/market/processed/dr_windows/tre_windows_{slug}_{year}_top{T}_thr{THR}[_fx{FX}].csv"
+tags: ["windows","threshold","timeseries","export"]
+summary: >
+  Für jeden betrachteten Tag das kürzeste Zeitfenster, das ≥THR% der Tagesenergie
+  des Zielgeräts abdeckt, inkl. Start/Ende, window_pct und window_sum.
+schema:
+  columns:
+    - "date: YYYY-MM-DD"
+    - "start: HH:MM (lokale Tageszeit)"
+    - "end: HH:MM (00:00 = bis Tagesende oder 24h-Fenster)"
+    - "window_pct: float (Anteil der Tagesenergie in %)"
+    - "window_sum: float (Energiemenge im Fenster, Einheit wie JASM-Quelle)"
+notes:
+  - "Zeitauflösung wie JASM-Loader; keine Resampling-Logik in tre03."
+embed_fields: ["title","summary","schema","notes"]

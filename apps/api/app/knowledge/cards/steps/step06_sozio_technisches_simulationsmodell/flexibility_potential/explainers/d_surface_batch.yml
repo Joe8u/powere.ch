@@ -1,0 +1,27 @@
+id: "explainer:steps/step06_sozio_technisches_simulationsmodell/flexibility_potential/d_surface_batch"
+doc_type: "explainer"
+title: "Batch-Generierung der 3D-Teilnahmeflächen (vergleichbare Skalen)"
+lang: "de"
+audience: "Produkt/Stakeholder"
+summary: >
+  Dieses Skript erzeugt pro Gerät eine interaktive 3D-Fläche (Teilnahmequote in %).
+  Eine globale Farbskalenobergrenze (cmax) sorgt dafür, dass alle Plots direkt
+  miteinander vergleichbar sind.
+key_points:
+  - "Quelle ist die gleiche Survey-Aufbereitung wie in Einzelplots (Q9/Q10)."
+  - "Globale Farbskala: Maximalwert über alle Geräte, auf 5er-Schritte gerundet."
+  - "Geräte werden aus den Daten abgeleitet; `appliances` überschreibt das."
+  - "HTML-Export erlaubt einfaches Teilen ohne Python-Umgebung."
+how_to_use:
+  - "Standardlauf: `python -m steps.step06_sozio_technisches_simulationsmodell.flexibility_potential.d_surface_batch`"
+  - "Oder die Funktion `batch_generate_surfaces(...)` aus einer Pipeline heraus aufrufen."
+  - "Für Präsentationen `out_dir` in `data/market/processed/simulation/figures` setzen."
+faq:
+  - q: "Warum wenig Y-Werte?"
+    a: "Die Y-Achse nutzt nur im Survey genannte Dauern (keine künstliche Interpolation)."
+  - q: "Warum weicht die Fläche von tre05/tre06-Ergebnissen ab?"
+    a: "Hier wird nur die rohe Teilnahme modelliert; Event-/Budget-Caps kommen erst in tre05/tre06 dazu."
+links:
+  to_code_card: "code:steps/step06_sozio_technisches_simulationsmodell/flexibility_potential/d_surface_batch.py#batch_generate_surfaces"
+  repo_web_url: "https://github.com/Joe8u/powere.ch/blob/main/steps/step06_sozio_technisches_simulationsmodell/flexibility_potential/d_surface_batch.py"
+embed_fields: ["title","summary","key_points","how_to_use","faq"]

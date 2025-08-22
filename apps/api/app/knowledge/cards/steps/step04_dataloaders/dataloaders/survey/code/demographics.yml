@@ -1,0 +1,108 @@
+id: "code:steps/step04_dataloaders/dataloaders/survey/demographics.py#module"
+doc_type: "code_unit"
+lang: "de"
+title: "Dataloader: Demografie (Q1–Q5) – Alter, Geschlecht, Haushaltsgröße, Unterkunft, Stromart"
+step: "step04_dataloaders"
+module: "steps/step04_dataloaders/dataloaders/survey/demographics.py"
+path: "steps/step04_dataloaders/dataloaders/survey/demographics.py"
+repo_relpath: "steps/step04_dataloaders/dataloaders/survey/demographics.py"
+tags: ["dataloader","survey","demographics","q1","q2","q3","q4","q5","processed-data"]
+
+summary: >
+  Loader für demografische Survey-Informationen aus Step-02-Preprocessing.
+  Liest fünf Tabellen (Alter, Geschlecht, Haushaltsgröße, Unterkunftstyp,
+  Strombezug) aus `data/survey/processed`. Bereinigt `respondent_id`
+  (Excel-`.0`-Artefakte, leere/„nan“), optional numerische Typen
+  für Alter und Haushaltsgröße.
+
+storage_layout:
+  processed_dir: "data/survey/processed"
+  files:
+    age:            "question_1_age.csv"            # respondent_id, age (numeric)
+    gender:         "question_2_gender.csv"         # respondent_id, gender
+    household_size: "question_3_household_size.csv" # respondent_id, household_size (numeric)
+    accommodation:  "question_4_accommodation.csv"  # respondent_id, accommodation_type
+    electricity:    "question_5_electricity.csv"    # respondent_id, electricity_type
+  upstream:
+    - "steps/step02_preprocessing/survey/preprocess_q1_age.py"
+    - "steps/step02_preprocessing/survey/preprocess_q2_gender.py"
+    - "steps/step02_preprocessing/survey/preprocess_q3_household_size.py"
+    - "steps/step02_preprocessing/survey/preprocess_q4_accommodation.py"
+    - "steps/step02_preprocessing/survey/preprocess_q5_electricity.py"
+
+functions:
+  - name: "_read_csv_safe(path: Path, *, key: Optional[str]) -> pd.DataFrame"
+    desc: >
+      Robustes Einlesen (UTF-8). Bereinigt `respondent_id` (String, entfernt
+      trailing '.0', setzt leere/„nan“ auf NA, droppt fehlende IDs). Optionaler
+      `key` steuert Typ-Casts: `age`/`household_size` → numerisch.
+  - name: "load_demographics() -> dict[str, pd.DataFrame]"
+    desc: "Lädt alle fünf Tabellen und gibt ein Dict mit Schlüsseln {age, gender, household_size, accommodation, electricity} zurück."
+  - name: "load_age() -> pd.DataFrame"
+    desc: "Direktloader für Q1 (Alter, numerisch gecastet)."
+  - name: "load_gender() -> pd.DataFrame"
+    desc: "Direktloader für Q2 (Geschlecht)."
+  - name: "load_household_size() -> pd.DataFrame"
+    desc: "Direktloader für Q3 (Haushaltsgröße, numerisch gecastet)."
+  - name: "load_accommodation() -> pd.DataFrame"
+    desc: "Direktloader für Q4 (Unterkunftstyp, kanonisiert in Preprocessing)."
+  - name: "load_electricity() -> pd.DataFrame"
+    desc: "Direktloader für Q5 (Strombezug, kanonisiert in Preprocessing)."
+
+io_contracts:
+  inputs:
+    - "PROCESSED_DIR/question_1_age.csv"
+    - "PROCESSED_DIR/question_2_gender.csv"
+    - "PROCESSED_DIR/question_3_household_size.csv"
+    - "PROCESSED_DIR/question_4_accommodation.csv"
+    - "PROCESSED_DIR/question_5_electricity.csv"
+  outputs: "pd.DataFrame je Datei; `respondent_id` als String-Spalte; bei Alter/Haushaltsgröße numerische (nullable) Spalten."
+  id_normalization: >
+    `respondent_id` wird als String behandelt, Endung `'.0'` entfernt,
+    leere/„nan“ werden zu NA; Zeilen ohne ID werden entfernt.
+  error_handling:
+    - "Fehlende Datei: Warnung + leeres DataFrame."
+    - "Fehlende `respondent_id`-Spalte: Warnung; keine ID-Bereinigung möglich."
+  encoding: "UTF-8 (Fehler werden geloggt, Rückgabe dann leeres DF)."
+
+usage:
+  examples: |
+    from steps.step04_dataloaders.dataloaders.survey.demographics import (
+        load_demographics, load_age, load_gender, load_household_size, load_accommodation, load_electricity
+    )
+
+    dfs = load_demographics()
+    age  = dfs["age"]            # respondent_id, age (Int/Float nullable)
+    sex  = dfs["gender"]         # respondent_id, gender
+    hh   = dfs["household_size"] # respondent_id, household_size
+    acc  = dfs["accommodation"]  # respondent_id, accommodation_type
+    elec = dfs["electricity"]    # respondent_id, electricity_type
+
+    # Beispiel: Mergen auf respondent_id
+    base = age.merge(sex, on="respondent_id", how="outer") \
+              .merge(hh, on="respondent_id", how="outer") \
+              .merge(acc, on="respondent_id", how="outer") \
+              .merge(elec, on="respondent_id", how="outer")
+
+edge_cases:
+  - "CSV fehlt → leeres DF; Aufrufer sollte `.empty` prüfen."
+  - "Excel-Artefakte wie '12345.0' in `respondent_id` werden entfernt."
+  - "Leere/Whitespace/'nan' IDs werden gedroppt → stabilere Joins."
+  - "Numerische Casts verwenden `errors='coerce'` → unlesbare Werte werden NA."
+
+implementation_notes:
+  - "PROCESSED_DIR = DATA_ROOT / 'survey' / 'processed' (`DATA_ROOT` kommt aus `dataloaders/io.py`)."
+  - "Keine Zeitzonen; reine tabellarische Metadaten."
+  - "Bewusste Trennung von Preprocessing (Step 02) und Lesen (Step 04)."
+
+links:
+  repo_web_url: "https://github.com/Joe8u/powere.ch/blob/main/steps/step04_dataloaders/dataloaders/survey/demographics.py"
+
+embed_fields:
+  - "title"
+  - "summary"
+  - "storage_layout"
+  - "functions"
+  - "usage"
+  - "edge_cases"
+  - "implementation_notes"

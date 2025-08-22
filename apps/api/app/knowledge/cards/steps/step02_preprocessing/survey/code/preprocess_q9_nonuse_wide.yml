@@ -1,0 +1,114 @@
+id: "code:steps/step02_preprocessing/survey/preprocess_q9_nonuse_wide.py#main"
+doc_type: "code_unit"
+lang: "de"
+title: "Survey Q9: Bereitschaft zum Nicht-Benutzen (wide) – 6 Geräte-Spalten"
+step: "step02_preprocessing"
+module: "steps/step02_preprocessing/survey/preprocess_q9_nonuse_wide.py"
+path: "steps/step02_preprocessing/survey/preprocess_q9_nonuse_wide.py"
+repo_relpath: "steps/step02_preprocessing/survey/preprocess_q9_nonuse_wide.py"
+tags: ["preprocessing","survey","csv","wide","header-row","canonical-devices"]
+
+summary: >
+  Liest das SurveyMonkey-CSV, findet respondent_id und die Q9-Fragespalte,
+  liest 6 Gerätekategorien aus der zweiten Header-Zeile (Optionsreihe),
+  kanonisiert die Gerätenamen und schreibt eine Wide-Tabelle
+  (respondent_id + 6 Geräte-Spalten) mit bereinigten Strings.
+
+functions:
+  - "main()"
+  - "preprocess(infile: Path, outfile: Path) -> None"
+  - "project_root() -> Path"
+  - "read_raw_csv(path: Path) -> pd.DataFrame"
+  - "read_second_header_row(path: Path) -> list[str]"
+  - "find_col_by_names(columns, candidates)"
+  - "_norm_key(s: str) -> str"
+  - "canonicalize_device_label(label: str)"
+
+cli:
+  example: |
+    # aus dem Repo-Root
+    python -m steps.step02_preprocessing.survey.preprocess_q9_nonuse_wide
+
+    # mit Pfaden
+    python -m steps.step02_preprocessing.survey.preprocess_q9_nonuse_wide \
+      --infile "data/survey/raw/Energieverbrauch und Teilnahmebereitschaft an Demand-Response-Programmen in Haushalten.csv" \
+      --outfile "data/survey/processed/question_9_nonuse_wide.csv"
+
+inputs:
+  raw_csv: "data/survey/raw/Energieverbrauch und Teilnahmebereitschaft an Demand-Response-Programmen in Haushalten.csv"
+  header_note: "SurveyMonkey: zweite Datei-Zeile enthält die Geräte-Labels."
+  column_detection:
+    respondent_id_candidates: ["respondent_id","Respondent ID","respondent id"]
+    q9_candidates:
+      - "Könnten Sie sich vorstellen, eines der folgenden Haushaltsgeräte für einen begrenzten Zeitraum nicht einzuschalten, wenn Sie vom Elektrizitätswerk darum gebeten werden?"
+    fuzzy_tokens: ["vorstell","geraete","nicht","einschalten"]  # Fallback-Heuristik
+  device_labels_from_second_row: true
+  canonical_device_map:
+    geschirrspueler: "Geschirrspüler"
+    geschirrspüler: "Geschirrspüler"
+    backofenundherd: "Backofen und Herd"
+    fernseherundentertainmentsysteme: "Fernseher und Entertainment-Systeme"
+    fernseherundentertainment-systeme: "Fernseher und Entertainment-Systeme"
+    buerogeraete: "Bürogeräte"
+    bürogeräte: "Bürogeräte"
+    burogerate: "Bürogeräte"
+    waschmaschine: "Waschmaschine"
+    staubsauger: "Staubsauger"
+
+processing:
+  - "respondent_id und Q9-Fragespalte lokalisieren (exakt, sonst fuzzy via Tokens)."
+  - "Zweite Header-Zeile lesen; 6 Geräte-Labels ab Frageindex (mit Offset-Heuristik 0/+1)."
+  - "Gerätenamen kanonisieren (Umlaute/Varianten)."
+  - "Spaltenauswahl per Spaltennamen (nicht per Integer-Index)."
+  - "Gerätewerte als 'string' trimmen und leere/nan → <NA> setzen (keine numerische Transformation)."
+
+outputs:
+  processed_csv: "data/survey/processed/question_9_nonuse_wide.csv"
+  schema_out: |
+    respondent_id (string)
+    Geschirrspüler (string | <NA>)
+    Backofen und Herd (string | <NA>)
+    Fernseher und Entertainment-Systeme (string | <NA>)
+    Bürogeräte (string | <NA>)
+    Waschmaschine (string | <NA>)
+    Staubsauger (string | <NA>)
+
+edge_cases:
+  - "Q9-Fragetext leicht abweichend → Fuzzy-Tokens greifen."
+  - "Zweite Header-Zeile um 1 versetzt → Offset-Heuristik wählt den plausibelsten Slice."
+  - "≠6 Geräte-Labels → harter Fehler mit Hinweis."
+  - "Unbekannter respondent_id-Header → Fehler."
+  - "Leere Strings / 'nan' → als <NA> gespeichert."
+
+downstream:
+  - "Step 04 Dataloader konvertiert diese Wide-Datei typischerweise nach Long (z. B. für a_survey_data_preparer)."
+  - "Konsistenter Gerätename ist wichtig, damit spätere Merges (Q9/Q10) sauber funktionieren."
+
+router_hints:
+  intent_category: "erklaerung+code"
+  good_for_questions:
+    - "Wie werden die Geräte-Labels aus der zweiten Kopfzeile ausgelesen?"
+    - "Warum bleiben Q9-Werte Strings (und werden nicht numerisch gemappt)?"
+    - "Wie robust ist die Erkennung der Q9-Fragespalte?"
+
+links:
+  server_path: "/srv/repos/powere.ch/steps/step02_preprocessing/survey/preprocess_q9_nonuse_wide.py"
+  repo_web_url: "https://github.com/Joe8u/powere.ch/blob/main/steps/step02_preprocessing/survey/preprocess_q9_nonuse_wide.py"
+
+embed_fields:
+  - "title"
+  - "summary"
+  - "processing"
+  - "inputs"
+  - "outputs"
+  - "edge_cases"
+  - "cli"
+  - "downstream"
+  - "body"
+
+body: |
+  # Hinweise
+  - Q9 speichert bewusst Roh-Strings (z. B. 'Ja, für 3 bis 6 Stunden'), weil die spätere
+    Interpretation/Mapping (z. B. in Step 06) je nach Analyseziel variieren kann.
+  - Die Gerätebezeichnungen werden mit _norm_key vereinheitlicht und auf kanonische Labels gemappt,
+    damit Merges über Q8/Q10 konsistent sind.

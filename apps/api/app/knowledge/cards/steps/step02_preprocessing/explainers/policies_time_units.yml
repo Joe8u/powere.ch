@@ -1,0 +1,28 @@
+id: "explainer:steps/step02_preprocessing/policies_time_units"
+doc_type: "explainer"
+lang: "de"
+title: "Policies: Zeitachsen, Zeitzonen & Einheiten"
+summary: >
+  Einheitliche Regeln für Zeit- und Einheitennormalisierung im Preprocessing.
+rules:
+  timezone:
+    local: "Europe/Zurich"
+    utc_conversion: "Für step06 wird häufig zusätzlich UTC benötigt; falls nötig beide Indizes speichern."
+    dst: "Ambiguous/nonexistent mit pandas sauber behandeln (ambiguous='infer', nonexistent='shift_forward')."
+  sampling:
+    default_resolution: "15min (Quartiere) für markt-joinfähige Zeitreihen"
+    resampling_policy:
+      - "downsample: mean für Preise/Leistungen, sum für Energien"
+      - "upsample: forward-fill für langsam variierende Größen, linear für Preise falls sinnvoll"
+  units:
+    price: "CHF/kWh (aus EUR/MWh → /1000 und ggf. FX anwenden)"
+    energy: "kWh/MWh explizit — nicht mischen"
+    power: "kW/MW explizit — nicht mischen"
+  missing_outliers:
+    missing: "klarer Plan: drop vs. interpolate vs. ffill/bfill"
+    outliers: "winsorize/clip nur mit Begründung; Schwellen in der jeweiligen Code-Karte dokumentieren"
+  io_formats:
+    csv: "UTF-8, ';' oder ',' konsistent; 'decimal' dokumentieren"
+    parquet: "optional für Performance"
+notes:
+  - "Alle Abweichungen von diesen Policies müssen in der jeweiligen Code-Karte begründet werden."

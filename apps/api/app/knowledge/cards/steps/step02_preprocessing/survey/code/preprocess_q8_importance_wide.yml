@@ -1,0 +1,109 @@
+id: "code:steps/step02_preprocessing/survey/preprocess_q8_importance_wide.py#main"
+doc_type: "code_unit"
+lang: "de"
+title: "Survey Q8: Wichtigkeit Haushaltsgeräte (wide) – 6 Ratings extrahieren"
+step: "step02_preprocessing"
+module: "steps/step02_preprocessing/survey/preprocess_q8_importance_wide.py"
+path: "steps/step02_preprocessing/survey/preprocess_q8_importance_wide.py"
+repo_relpath: "steps/step02_preprocessing/survey/preprocess_q8_importance_wide.py"
+tags: ["preprocessing","survey","csv","wide","ratings"]
+
+summary: >
+  Liest das SurveyMonkey-CSV, findet respondent_id und die Q8-Fragespalte,
+  liest die Gerätekopfzeilen aus der zweiten Header-Zeile, parst 6 Ratings (1–5)
+  in ganzzahlige nullable Int64-Spalten und schreibt eine Wide-Tabelle:
+  respondent_id + 6 Gerätespalten.
+
+functions:
+  - "main()"
+  - "preprocess(infile: Path, outfile: Path) -> None"
+  - "project_root() -> Path"
+  - "read_raw_csv(path: Path) -> pd.DataFrame"
+  - "read_second_header_row(path: Path) -> list[str]"
+  - "find_col_by_names(columns, candidates)"
+  - "find_col_contains(columns, *tokens)"
+  - "parse_rating(x)"
+  - "canonicalize_device_label(label: str) -> str"
+
+cli:
+  example: |
+    # aus dem Repo-Root
+    python -m steps.step02_preprocessing.survey.preprocess_q8_importance_wide
+
+    # mit Pfaden
+    python -m steps.step02_preprocessing.survey.preprocess_q8_importance_wide \
+      --infile "data/survey/raw/Energieverbrauch und Teilnahmebereitschaft an Demand-Response-Programmen in Haushalten.csv" \
+      --outfile "data/survey/processed/question_8_importance_wide.csv"
+
+inputs:
+  raw_csv: "data/survey/raw/Energieverbrauch und Teilnahmebereitschaft an Demand-Response-Programmen in Haushalten.csv"
+  header_note: "SurveyMonkey: zweite Header-Zeile enthält Gerätebezeichnungen; Einlesen via read_second_header_row()."
+  column_detection:
+    respondent_id_candidates: ["respondent_id","Respondent ID","respondent id"]
+    q8_candidates:
+      - "Bitte bewerten Sie, wie wichtig es für Sie ist, die folgenden Haushaltsgeräte jederzeit nutzen zu können (1 = sehr unwichtig, 5 = sehr wichtig)"
+      - "Bitte bewerten Sie, wie wichtig es für Sie ist, die folgenden Haushaltsgeräte jederzeit nutzen zu können (1=sehr unwichtig, 5=sehr wichtig)"
+    fuzzy_tokens: ["bewertensie","wichtig","haushaltsgerate"]
+  device_labels_from_second_row: true
+  canonical_device_map:
+    geschirrspüler: "Geschirrspüler"
+    backofenundherd: "Backofen und Herd"
+    fernseherundentertainmentsysteme: "Fernseher und Entertainment-Systeme"
+    fernseherundentertainment-systeme: "Fernseher und Entertainment-Systeme"
+    bürogerate: "Bürogeräte"
+    burogerate: "Bürogeräte"
+    waschmaschine: "Waschmaschine"
+    staubsauger: "Staubsauger"
+  rating_parse: "Erste Ziffer 1–5 aus dem String (z. B. '5 = sehr wichtig')"
+
+processing:
+  - "respondent_id + Q8-Fragespalte lokalisieren (exakt oder fuzzy)."
+  - "Gerätenamen aus zweiter Header-Zeile: 6 Spalten ab Frageindex; robustes Offsetscoring (slice0/slice1)."
+  - "Gerätenamen kanonisieren (Umlaute/Bindestriche/Leerzeichen-Varianten)."
+  - "Ratings per parse_rating → Int64 (nullable)."
+  - "Spaltennamen: respondent_id + [Geschirrspüler, Backofen und Herd, Fernseher und Entertainment-Systeme, Bürogeräte, Waschmaschine, Staubsauger]."
+
+outputs:
+  processed_csv: "data/survey/processed/question_8_importance_wide.csv"
+  schema_out: |
+    respondent_id (string)
+    Geschirrspüler (Int64 1–5 | <NA>)
+    Backofen und Herd (Int64 1–5 | <NA>)
+    Fernseher und Entertainment-Systeme (Int64 1–5 | <NA>)
+    Bürogeräte (Int64 1–5 | <NA>)
+    Waschmaschine (Int64 1–5 | <NA>)
+    Staubsauger (Int64 1–5 | <NA>)
+
+edge_cases:
+  - "Fragespalte leicht verschoben → fuzzy find_col_contains greift."
+  - "Geräte-Labels um 1 versetzt → Offset-Heuristik wählt slice mit höherem Score."
+  - "Weniger/mehr als 6 Labels → Fehler mit Hinweis (expected 6)."
+  - "Ratings als Text ('5 = sehr wichtig') → erste Ziffer wird extrahiert."
+  - "Unbekannte Geräteschreibweisen → bleiben unverändert, Karte dokumentiert Canon-Map."
+
+router_hints:
+  intent_category: "erklaerung+code"
+  good_for_questions:
+    - "Wie werden die 6 Gerätespalten aus dem Survey-Export erkannt?"
+    - "Wie werden Textbewertungen in Zahlen (1–5) konvertiert?"
+    - "Was passiert, wenn die zweite Header-Zeile verschoben ist?"
+
+links:
+  server_path: "/srv/repos/powere.ch/steps/step02_preprocessing/survey/preprocess_q8_importance_wide.py"
+  repo_web_url: "https://github.com/Joe8u/powere.ch/blob/main/steps/step02_preprocessing/survey/preprocess_q8_importance_wide.py"
+
+embed_fields:
+  - "title"
+  - "summary"
+  - "processing"
+  - "inputs"
+  - "outputs"
+  - "edge_cases"
+  - "cli"
+  - "body"
+
+body: |
+  # Hinweise
+  - `read_second_header_row()` liest die Options-/Gerätenamenzeile direkt aus der Datei.
+  - Die Offset-Heuristik prüft zwei Slices (ohne/mit +1) und nimmt den mit mehr "echten" Labels.
+  - Ratings werden als nullable Int64 gespeichert – fehlende Antworten bleiben <NA>.

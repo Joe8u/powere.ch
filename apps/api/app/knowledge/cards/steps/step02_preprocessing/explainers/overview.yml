@@ -1,0 +1,31 @@
+id: "explainer:steps/step02_preprocessing/overview"
+doc_type: "explainer"
+lang: "de"
+title: "Überblick: Vorverarbeitung (raw → processed)"
+audience: "Tech & Produkt"
+summary: >
+  Step 02 vereinheitlicht und bereinigt die Rohdaten (Zeitachsen, Einheiten,
+  Spaltennamen, Duplikate/Outlier, Lückenbehandlung) und schreibt reproduzierbare
+  Artefakte in data/…/processed. Diese Artefakte dienen als stabile Basis für die
+  Dataloader in Step 04 und alle nachfolgenden Analysen/Simulationen.
+scope:
+  inputs_examples:
+    - "Markt: Regelenergie / mFRR (15-min, Preise, Abrufe)"
+    - "Lastprofile: JASM (Geräte- bzw. Haushaltsaggregate)"
+    - "Survey: Q9/Q10-Rohdaten"
+  outputs_principles:
+    - "klare Schemata (dtype, Einheiten, Timezone)"
+    - "Lückenstrategie dokumentiert (ffill/bfill/Interpolation/Drop)"
+    - "Idempotente Skripte (gleiche Inputs → gleiche Outputs)"
+key_rules:
+  - "Zeitbasis: lokale Zeitzone ≙ Europe/Zurich; für Vergleiche/Joins ggf. zusätzlich UTC-Spuren erzeugen."
+  - "Einheiten: Preise auf CHF/kWh normalisieren; Leistungen/Energien konsistent (kW/kWh bzw. MW/MWh)."
+  - "CSV-Encoding/Trennzeichen stabilisieren (UTF-8, eindeutige decimal/sep)."
+  - "Keine stillen magischen Konstanten — alle Annahmen explizit dokumentieren."
+how_to_navigate:
+  - "Nutze diese Übersicht + Policies zuerst."
+  - "Öffne danach die jeweilige Code-Karte im Unterordner code/ (eine Karte pro Preprocess-Skript)."
+links:
+  related_steps:
+    - "step04_dataloaders (nutzt die processed-Artefakte)"
+    - "step06_* (Simulation/DR-Logik, hängt transitiv an step02)"

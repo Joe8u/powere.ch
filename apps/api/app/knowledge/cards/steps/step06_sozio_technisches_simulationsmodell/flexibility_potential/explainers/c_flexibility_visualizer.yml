@@ -1,0 +1,27 @@
+id: "explainer:steps/step06_sozio_technisches_simulationsmodell/flexibility_potential/c_flexibility_visualizer"
+doc_type: "explainer"
+title: "3D-Visualisierung der Teilnahmequote – so liest du die Fläche"
+lang: "de"
+audience: "Produkt/Stakeholder"
+summary: >
+  Die 3D-Fläche zeigt, wie stark Haushalte (für ein Gerät) voraussichtlich teilnehmen,
+  wenn man Event-Dauer (Y) und Anreiz in % der Monatskosten (X) variiert. Z ist die
+  erwartete Teilnahmequote in Prozent (roh, ohne Caps).
+key_points:
+  - "Je höher der Anreiz (X), desto größer die Teilnahme – aber nicht zwingend linear."
+  - "Nicht alle Dauern kommen in der Umfrage vor; die Y-Achse verwendet genau die beobachteten Werte."
+  - "Diese Fläche basiert auf Q9/Q10 (a_survey_data_preparer + b_participation_calculator)."
+  - "Caps und Budgetgrenzen werden erst in tre05/tre06 angewendet; hier siehst du die 'reine' Bereitschaft."
+how_to_use:
+  - "Nutze die Fläche, um sinnvolle Incentive-Bänder zu finden (z. B. wo sich Z schnell erhöht)."
+  - "Vergleiche Geräte, indem du die Skalen (0–100 %) identisch lässt."
+  - "Speichere interaktive HTMLs (save_html_path), um sie im Team zu teilen."
+faq:
+  - q: "Warum sehe ich Lücken oder wenige Y-Werte?"
+    a: "Nur Dauern, die im Survey genannt wurden, werden geplottet. Das verhindert künstliche Interpolation."
+  - q: "Warum unterscheidet sich diese Quote von Simulationsergebnissen?"
+    a: "Simulationen (tre05/tre06) begrenzen zusätzlich pro Event/Haushalt; hier fehlt die ökonomische Deckelung."
+links:
+  to_code_card: "code:steps/step06_sozio_technisches_simulationsmodell/flexibility_potential/c_flexibility_visualizer.py#generate_3d_flexibility_surface_plot"
+  repo_web_url: "https://github.com/Joe8u/powere.ch/blob/main/steps/step06_sozio_technisches_simulationsmodell/flexibility_potential/c_flexibility_visualizer.py"
+embed_fields: ["title","summary","key_points","how_to_use","faq"]

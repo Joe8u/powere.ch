@@ -1,0 +1,91 @@
+id: "code:steps/step02_preprocessing/survey/preprocess_q6_challenges.py#main"
+doc_type: "code_unit"
+lang: "de"
+title: "Survey Q6 (Herausforderungen): Freitext säubern & exportieren"
+step: "step02_preprocessing"
+module: "steps/step02_preprocessing/survey/preprocess_q6_challenges.py"
+path: "steps/step02_preprocessing/survey/preprocess_q6_challenges.py"
+repo_relpath: "steps/step02_preprocessing/survey/preprocess_q6_challenges.py"
+tags: ["preprocessing","survey","freetext","csv","normalization"]
+
+summary: >
+  Extrahiert die Q6-Freitextantworten („Herausforderungen“) inkl. respondent_id,
+  findet die passende Spalte robust (exakter Titel oder fuzzy 'Herausforderungen'),
+  säubert Antworten minimal (Trim, Platzhalter → NA, 'wn' → 'Weiss nicht)
+  und schreibt `data/survey/processed/question_6_challenges.csv`.
+
+functions:
+  - "main()"
+  - "preprocess(infile: Path, outfile: Path) -> None"
+  - "project_root() -> Path"
+  - "read_raw_csv(path: Path) -> pd.DataFrame"
+  - "find_col_by_names(columns, candidates) -> Optional[str]"
+  - "find_col_contains(columns, token: str) -> Optional[str]"
+  - "clean_freetext(val: Optional[str]) -> Optional[str]"
+
+cli:
+  example: |
+    # aus dem Repo-Root
+    python -m steps.step02_preprocessing.survey.preprocess_q6_challenges
+
+    # mit Pfaden
+    python -m steps.step02_preprocessing.survey.preprocess_q6_challenges \
+      --infile "data/survey/raw/Energieverbrauch und Teilnahmebereitschaft an Demand-Response-Programmen in Haushalten.csv" \
+      --outfile "data/survey/processed/question_6_challenges.csv"
+
+inputs:
+  raw_csv: "data/survey/raw/Energieverbrauch und Teilnahmebereitschaft an Demand-Response-Programmen in Haushalten.csv"
+  column_detection:
+    respondent_id_candidates: ["respondent_id","Respondent ID","respondent id"]
+    q6_candidates:
+      - "Denken Sie, dass die zunehmende Erzeugung erneuerbarer Energien Herausforderungen für das Stromsystem mit sich bringt? Wenn ja, welche?Falls Sie es nicht wissen, können Sie gerne ‚wn‘ (weiss nicht) schreiben."
+      - "Denken Sie, dass die zunehmende Erzeugung erneuerbarer Energien Herausforderungen für das Stromsystem mit sich bringt? Wenn ja, welche?"
+      - "Welche Herausforderungen"
+    fuzzy_token: "Herausforderungen"
+  header_note: "SurveyMonkey-Exports: zweite Headerzeile über skiprows=[1] überspringen."
+  encoding_fallback: ["utf-8","latin-1"]
+
+processing:
+  - "Spaltenerkennung: erst Kandidaten exakt, dann fuzzy Contains('Herausforderungen')."
+  - "Leichte Säuberung (clean_freetext): Trim, leere/NA-ähnliche Platzhalter → None."
+  - "Synonyme für 'weiss nicht' (wn/weiß/weis/k.a./ka) → 'Weiss nicht'."
+  - "Nullable string-Spalten, damit fehlende Werte als <NA> im CSV landen."
+
+outputs:
+  processed_csv: "data/survey/processed/question_6_challenges.csv"
+  schema_out: |
+    respondent_id (string)
+    challenge_text (string | <NA>)
+
+edge_cases:
+  - "Fehlende Q6-Spalte: Abbruch mit klarer Fehlermeldung (KeyError)."
+  - "Nur Platzhalter ('-', '—', '–', 'null', 'nan') → None."
+  - "Mehrere Q6-Varianten im Export: erste gefundene Spalte wird verwendet."
+
+router_hints:
+  intent_category: "erklaerung+code"
+  good_for_questions:
+    - "Wie werden 'wn' und ähnliche Platzhalter behandelt?"
+    - "Welche Heuristik findet die Q6-Freitextspalte?"
+    - "Warum bleiben Antworten weitgehend unberührt (minimal-invasiv)?"
+
+links:
+  server_path: "/srv/repos/powere.ch/steps/step02_preprocessing/survey/preprocess_q6_challenges.py"
+  repo_web_url: "https://github.com/Joe8u/powere.ch/blob/main/steps/step02_preprocessing/survey/preprocess_q6_challenges.py"
+
+embed_fields:
+  - "title"
+  - "summary"
+  - "processing"
+  - "inputs"
+  - "outputs"
+  - "edge_cases"
+  - "cli"
+  - "body"
+
+body: |
+  # Hinweise
+  - Die Regex `EMPTY_PAT` deckt typische leere/Platzhalter-Eingaben ab; bei neuen Mustern hier erweitern.
+  - Für spätere NLP-Auswertung (Themen/Cluster) kann `challenge_text` direkt aus dem
+    processed-CSV verwendet werden; das Preprocessing nimmt bewusst keine sprachliche
+    Normalisierung außer Minimalfällen vor.

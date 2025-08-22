@@ -1,0 +1,6 @@
+id: "steps/step01_raw_data/market/regelenergie"
+doc_type: "toc"
+title: "Rohdaten: Markt – Regelenergie (mFRR/TRE)"
+lang: "de"
+children:
+  - "doc:steps/step01_raw_data/market/regelenergie/swissgrid_mfrr_tre_csv.yml#page"

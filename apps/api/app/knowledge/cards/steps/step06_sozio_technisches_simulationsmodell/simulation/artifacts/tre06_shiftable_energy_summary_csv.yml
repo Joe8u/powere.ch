@@ -1,0 +1,30 @@
+id: "artifact:steps/step06_sozio_technisches_simulationsmodell/simulation/tre06_shiftable_energy_summary_csv"
+doc_type: "data_artifact"
+title: "Artefakt: tre06 – Tages-Summary (bestes Fenster)"
+lang: "de"
+location_pattern: "data/market/processed/simulation/tre06_shiftable_energy_summary_<slug>_<year>_top<T>_thr<THR>[_fx<FX>].csv"
+format: "CSV; Separator ';'; Dezimal '.'"
+tags: ["simulation","results","grid","summary"]
+summary: >
+  Aggregation auf Tagesebene: je Peak-Tag das Fenster mit der maximalen verschiebbaren
+  Energie inkl. bindender Restriktion und zentraler Kennzahlen.
+schema:
+  columns:
+    - "event_date: YYYY-MM-DD"
+    - "rank_step4: int"
+    - "event_duration_h: float"
+    - "pre_peak_offset_h: float"
+    - "shiftable_energy_mwh: float"
+    - "binding_constraint: enum('window_limit','per_household_cap','no_data')"
+    - "finale_teilnahmequote: float (0..1)"
+    - "konvergierter_komp_prozentsatz: float (in %)"
+    - "event_hours_paid_cap: float"
+    - "event_kwh_cap: float"
+    - "avg_tre_price_in_window_chf_kwh: float"
+    - "avg_tre_price_paid_h_chf_kwh: float"
+    - "event_max_comp_chf_per_hh: float"
+    - "kompensation_pro_haushalt_pro_event_chf: float"
+    - "households_in_scope: int"
+notes:
+  - "Columns entsprechen der Auswahl in best_per_day (siehe Script-Block 'Phase 4/5')."
+embed_fields: ["title","summary","schema","notes"]

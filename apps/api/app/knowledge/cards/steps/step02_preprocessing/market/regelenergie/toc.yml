@@ -1,0 +1,6 @@
+id: "toc:steps/step02_preprocessing/market/regelenergie"
+title: "Preprocessing – Markt: Regelenergie (mFRR/TRE)"
+doc_type: "toc"
+lang: "de"
+children:
+  - "code:steps/step02_preprocessing/market/regelenergie/preprocess_tertiary_regulation.py#main"

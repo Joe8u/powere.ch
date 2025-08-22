@@ -1,0 +1,76 @@
+id: "code:steps/step06_sozio_technisches_simulationsmodell/flexibility_potential/b_participation_calculator.py#calculate_participation_metrics"
+doc_type: "code_unit"
+title: "Participation Calculator – Roh-Teilnahmequote je Gerät/Duration/Incentive"
+lang: "de"
+path: "steps/step06_sozio_technisches_simulationsmodell/flexibility_potential/b_participation_calculator.py"
+repo_relpath: "steps/step06_sozio_technisches_simulationsmodell/flexibility_potential/b_participation_calculator.py"
+step: "step06_sozio_technisches_simulationsmodell"
+module: "flexibility_potential"
+tags: ["survey","participation","incentives","thresholds","tre05","tre06"]
+summary: >
+  Ermittelt die rohe Teilnahmequote für ein Zielgerät bei gegebener Eventdauer und
+  angebotenem Incentive (in %-Punkten der Monatskosten). Nutzt die von
+  a_survey_data_preparer aufbereitete Normalform (Q9/Q10). Wird in tre05/tre06 iterativ
+  aufgerufen, dort ggf. zusätzlich mit Caps begrenzt.
+functions:
+  - "calculate_participation_metrics(df_survey_flex_input, target_appliance, event_duration_h, offered_incentive_pct)"
+  - "participation_grid(df_survey_flex_input, target_appliance, durations_h, incentives_pct)"
+  - "ParticipationInput dataclass (Convenience für Aufrufer)"
+inputs:
+  dataframe: "Aus prepare_survey_flexibility_data()"
+  required_columns:
+    - respondent_id
+    - device
+    - survey_max_duration_h
+    - survey_incentive_choice        # {yes_fixed, yes_conditional, no, unknown_*}
+    - survey_incentive_pct_required  # float, bei yes_fixed = 0.0
+parameters:
+  target_appliance: "Gerätename (kanonisch, z. B. 'Geschirrspüler')"
+  event_duration_h: "Eventdauer in Stunden (float)"
+  offered_incentive_pct: "angebotenes Incentive in %-Punkten der Monatskosten (z. B. 10.0)"
+process:
+  - "Filter auf target_appliance."
+  - "Q9-Dauerbedingung: survey_max_duration_h >= event_duration_h (0.0 bedeutet 'nie' für Dauer>0)."
+  - "Q10-Anreizbedingung: yes_fixed ⇒ true; yes_conditional ⇒ offered_incentive_pct >= required_pct."
+  - "Teilnahme, wenn beide Bedingungen erfüllt; eindeutige respondent_id-Menge zählt."
+  - "raw_participation_rate = num_participants / base_population (0..1)."
+outputs:
+  metrics:
+    target_appliance: "string"
+    event_duration_h: "float"
+    offered_incentive_pct: "float"
+    base_population: "int (# Respondenten für Gerät)"
+    num_participants: "int"
+    raw_participation_rate: "float (Anteil 0..1, ohne Caps)"
+  grid_dataframe: "über participation_grid() für mehrere Dauern/Incentives"
+edge_cases:
+  - "Leerer/fehlender DF ⇒ Basis 0, Rate 0.0."
+  - "Kein Match auf device ⇒ Basis 0, Rate 0.0."
+  - "event_duration_h == 0 ⇒ Dauerbedingung nicht automatisch true; Logik bleibt: >= 0."
+  - "unknown/no in survey_incentive_choice ⇒ Anreizbedingung false."
+  - "NaN in required_pct bei yes_conditional ⇒ Anreizbedingung false."
+router_hints:
+  intent_category: "erklärung+berechnung"
+  good_for_questions:
+    - "Wie wird die Teilnahmequote berechnet?"
+    - "Welche Rolle spielen yes_fixed vs. yes_conditional?"
+    - "Warum unterscheidet sich raw_rate von der finalen Rate in tre05/tre06?"
+usage_examples:
+  - "from steps.step06_sozio_technisches_simulationsmodell.flexibility_potential.a_survey_data_preparer import prepare_survey_flexibility_data; df = prepare_survey_flexibility_data(); from steps.step06_sozio_technisches_simulationsmodell.flexibility_potential.b_participation_calculator import calculate_participation_metrics; calculate_participation_metrics(df, 'Geschirrspüler', 1.5, 10.0)"
+  - "participation_grid(df, 'Geschirrspüler', durations_h=[1.5,4.5,9.0], incentives_pct=[0,10,20,30])"
+depends_on:
+  - "steps/step06_sozio_technisches_simulationsmodell/flexibility_potential/a_survey_data_preparer.py#prepare_survey_flexibility_data"
+links:
+  server_path: "/srv/repos/powere.ch/apps/api/app/steps/step06_sozio_technisches_simulationsmodell/flexibility_potential/b_participation_calculator.py"
+  repo_relpath: "steps/step06_sozio_technisches_simulationsmodell/flexibility_potential/b_participation_calculator.py"
+  repo_web_url: "https://github.com/Joe8u/powere.ch/blob/main/steps/step06_sozio_technisches_simulationsmodell/flexibility_potential/b_participation_calculator.py"
+embed_fields: ["title","summary","process","inputs","parameters","outputs","edge_cases","usage_examples","body"]
+body: |
+  # Semantik
+  - offered_incentive_pct ist **in %-Punkten** (10.0 ≙ 10 % der Monatskosten).
+  - Diese Funktion liefert die **rohe** Teilnahmequote; Caps/Deckelungen (z. B. 62.9 %) passieren in tre05/tre06.
+  - yes_fixed bedeutet Teilnahme **unabhängig vom Prozentwert** (intern 0.0 % hinterlegt).
+
+  # Performance
+  - Für große Samples ist das per-Row-Iterieren ok (einmalige Schleife, Set-Insert). Falls nötig,
+    lässt sich das mit boolean masks vektorisieren; Logik bleibt identisch.

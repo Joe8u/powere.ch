@@ -1,0 +1,40 @@
+id: "artifact:steps/step06_sozio_technisches_simulationsmodell/simulation/tre06_shiftable_energy_detailed_csv"
+doc_type: "data_artifact"
+title: "Artefakt: tre06 – Detailergebnisse (verschiebbare Energie)"
+lang: "de"
+location_pattern: "data/market/processed/simulation/tre06_shiftable_energy_detailed_<slug>_<year>_top<T>_thr<THR>[_fx<FX>].csv"
+format: "CSV; Separator ';'; Dezimal '.'"
+tags: ["simulation","results","grid","events","caps","participation"]
+summary: >
+  Zeile pro (Tag × Offset × Dauer) mit Teilnahmequote, Caps und verschiebbarer Energie
+  sowie bindender Restriktion (window_limit vs. per_household_cap).
+schema:
+  columns:
+    - "event_date: YYYY-MM-DD"
+    - "rank_step4: int"
+    - "reference_peak_utc: 'YYYY-MM-DD HH:MM'"
+    - "event_start_utc: 'YYYY-MM-DD HH:MM'"
+    - "event_duration_h: float"
+    - "pre_peak_offset_h: float"
+    - "avg_tre_price_in_window_chf_kwh: float"
+    - "event_hours_paid_cap: float"
+    - "event_kwh_cap: float"
+    - "avg_tre_price_paid_h_chf_kwh: float"
+    - "event_max_comp_chf_per_hh: float"
+    - "kompensations_basis_energie_kwh: float"
+    - "kompensations_basis_kosten_chf: float"
+    - "konvergierter_komp_prozentsatz: float (in %)"
+    - "finale_teilnahmequote: float (0..1)"
+    - "window_limit_mwh: float"
+    - "hh_limit_mwh: float"
+    - "shiftable_energy_mwh: float"
+    - "binding_constraint: enum('window_limit','per_household_cap','no_data')"
+    - "households_in_scope: int"
+    - "kompensation_pro_haushalt_pro_event_chf: float"
+    - "iterations_to_converge: int"
+    - "converged: bool"
+    - "error_message: str|null"
+notes:
+  - "Bei leeren Intervall-Schnitten wird binding_constraint='no_data' gesetzt."
+  - "Per-Haushalt-Cap: event_kwh_cap = min(Zyklus-kWh, Zyklusleistung × bezahlte Stunden)."
+embed_fields: ["title","summary","schema","notes"]

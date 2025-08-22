@@ -1,0 +1,103 @@
+id: "code:steps/step06_sozio_technisches_simulationsmodell/simulation/tre05_flex_potential_simulation.py#main"
+doc_type: "code_unit"
+title: "tre05 – Simulation Flexibilitätspotenzial (TRE × JASM × Umfrage)"
+lang: "de"
+path: "steps/step06_sozio_technisches_simulationsmodell/simulation/tre05_flex_potential_simulation.py"
+repo_relpath: "steps/step06_sozio_technisches_simulationsmodell/simulation/tre05_flex_potential_simulation.py"
+step: "step06_sozio_technisches_simulationsmodell"
+module: "simulation"
+tags: ["simulation","tre","mFRR","jasm","flexibility","survey","ranking","utc","15min"]
+summary: >
+  Simuliert für Top-TRE-Preistage (tre01–tre04 Pipeline) das umfragebasierte
+  Flexibilitätspotenzial eines Geräts (Default: Geschirrspüler). Schneidet rund
+  um einen Referenz-Peak variable Eventfenster (Offsets × Dauern), rechnet JASM-
+  Energie, TRE-Preise, Vergütungscaps und iteriert die Teilnahmequote bis zur
+  Konvergenz. Ergebnis sind Event-Szenarien inkl. Auszahlung pro Haushalt.
+functions:
+  - "main()  # CLI-Entry"
+  - "_to_utc_index(idx, local_tz='Europe/Zurich')"
+  - "get_data_for_specific_window(df_timeseries, start_utc, end_utc, value_column)"
+defaults:
+  year: 2024
+  top: 150
+  appliance: "Geschirrspüler"
+  threshold_pct: 70.0
+  tz: "Europe/Zurich"
+  fx: null
+  simulate_days: 3
+  offsets_h: [2.0, 1.0, 0.0]
+  durations_h: [1.5, 3.0, 4.5]
+  cycle_kwh: 1.44
+  cycle_hours: 1.5
+  max_event_hours_paid: 3.0
+  monthly_kwh: 43.2
+  daily_kwh: null
+  base_comp_chf_kwh: 0.29
+  cap_participation: 0.629
+  max_comp_pct: 62.9
+inputs:
+  data_sources:
+    - "TRE Jahr: load_regulation_range(start, end) → avg_price_eur_mwh → tre_price_chf_kwh (≈ EUR→CHF)"
+    - "JASM Jahr: load_jasm_year_profile(appliances=[name], start, end, year, group=True)"
+    - "Umfrage: prepare_survey_flexibility_data() → Rohdaten zu Teilnahmebereitschaft"
+  pipeline_dependencies:
+    - "tre01: find_top_tre_price_periods(YEAR, n_top, fx)"
+    - "tre03: compute_shortest_energy_windows(df_jasm_day, col, threshold_pct)"
+    - "tre03: identify_dr_candidate_days(tre_peaks, windows)"
+    - "tre04: calculate_ranking_metrics_for_days(candidate_days, tre_peaks, windows)"
+  params_effects:
+    - "simulate_days: wie viele Top-Tage aus tre04 werden simuliert"
+    - "offsets, durations: grid der Eventfenster relativ zum Referenz-Peak"
+    - "cycle_kwh/cycle_hours: begrenzen Energie- und Zeit-Caps pro Event"
+    - "base_comp_chf_kwh/max_comp_pct/cap_participation: Vergütungs- und Teilnahme-Deckel"
+process:
+  phases:
+    - "Phase 0: Jahresreihen laden & nach UTC konvertieren (DST-robust)."
+    - "Phase 1: Umfragedaten vorbereiten."
+    - "Phase 2: tre01–tre04 ausführen (Peaks → Fenster → Kandidaten → Ranking)."
+    - "Phase 3: Simulation über (Offsets × Dauern) je Tag; iterative Angebots-% bis Konvergenz."
+    - "Phase 4: Zusammenfassung/Stdout."
+    - "Phase 5: optional CSV speichern (Semikolon-separiert)."
+outputs:
+  dataframe: "Szenario-Zeilen pro (Tag × Offset × Dauer) mit Preis-, Energie-, Cap-, Teilnahme- und Auszahlungsmetriken."
+  console_preview: "formatierte Übersicht wichtiger Spalten (siehe show_cols im Code)."
+csv_exports:
+  dir: "data/market/processed/simulation"
+  filename_pattern: "tre05_simulation_results_<slug>_<year>_top<T>_thr<THR>[_fx<FX>].csv"
+  format: "sep=';', decimal='.'"
+depends_on:
+  - "steps/step06_sozio_technisches_simulationsmodell/dr_windows/tre01_peak_price_finder.py::find_top_tre_price_periods"
+  - "steps/step06_sozio_technisches_simulationsmodell/dr_windows/tre03_dr_day_identifier.py::compute_shortest_energy_windows"
+  - "steps/step06_sozio_technisches_simulationsmodell/dr_windows/tre03_dr_day_identifier.py::identify_dr_candidate_days"
+  - "steps/step06_sozio_technisches_simulationsmodell/dr_windows/tre04_dr_day_ranker.py::calculate_ranking_metrics_for_days"
+  - "steps/step04_dataloaders/dataloaders/market/tertiary_regulation_loader.py::load_regulation_range"
+  - "steps/step04_dataloaders/dataloaders/lastprofile/__init__.py::load_appliances"
+  - "steps/step06_sozio_technisches_simulationsmodell/flexibility_potential/a_survey_data_preparer.py::prepare_survey_flexibility_data"
+  - "steps/step06_sozio_technisches_simulationsmodell/flexibility_potential/b_participation_calculator.py::calculate_participation_metrics"
+edge_cases:
+  - "Leeres Alignment im Eventfenster (JASM/TRE kein gemeinsamer 15-min-Raster) → Zeile mit error_message."
+  - "Ungültiger/negativer TRE-Preis oder event_kwh_cap≈0 → Zeile mit Guardrail-Hinweis."
+  - "Zeitzonen/DST: _to_utc_index nutzt ambiguous='infer', nonexistent='shift_forward'."
+  - "daily_kwh gesetzt → Monatsbasis dynamisch (Tage im Eventmonat)."
+router_hints:
+  intent_category: "erklärung+berechnung"
+  good_for_questions:
+    - "Wie leiten sich Teilnahmequote und Auszahlungs-% her?"
+    - "Welchen Einfluss haben Offsets/Dauern auf Auszahlung und verschobene Energie?"
+    - "Was bedeuten die verschiedenen Caps (Zeit, Energie, Prozent, Eventobergrenze)?"
+embed_fields: ["title","summary","process","inputs","outputs","edge_cases","body"]
+body: |
+  # Kernidee
+  Für jeden gerankten Tag (tre04) wird ein Referenz-Peak in UTC bestimmt. Um diesen
+  Peak herum werden Eventfenster mit vorgegebenen Offsets und Dauern geschnitten.
+  Innerhalb des Fensters werden JASM-Energie (15-min, MWh/Intervall) und TRE-Preise
+  (CHF/kWh) zusammengeführt. Die Teilnahmequote wird iterativ an ein „ökonomisches“
+  Angebots-% angepasst (TRE-Wert der verschobenen Energie relativ zur Monatskostenbasis),
+  gedeckelt von globalen Prozent-Caps und einer Eventobergrenze (Preis×Energie-Cap).
+  Das Ergebnis enthält sowohl netzweite als auch pro-Haushalt-Metriken.
+cli_examples:
+  - "python -m steps.step06_sozio_technisches_simulationsmodell.simulation.tre05_flex_potential_simulation --year 2024 --top 150 --appliance 'Geschirrspüler' --threshold 70 --simulate_days 3 --offsets 2 1 0 --durations 1.5 3 4.5 --save"
+links:
+  repo_relpath: "steps/step06_sozio_technisches_simulationsmodell/simulation/tre05_flex_potential_simulation.py"
+  server_path: "/srv/repos/powere.ch/steps/step06_sozio_technisches_simulationsmodell/simulation/tre05_flex_potential_simulation.py"
+  repo_web_url: "https://github.com/Joe8u/powere.ch/blob/main/steps/step06_sozio_technisches_simulationsmodell/simulation/tre05_flex_potential_simulation.py"

@@ -1,0 +1,98 @@
+id: "code:steps/step04_dataloaders/dataloaders/survey/demand_response.py#module"
+doc_type: "code_unit"
+lang: "de"
+title: "Dataloader: Demand-Response (Q8/Q11/Q12) – Importance, Notify Opt-in, Smart Plug"
+step: "step04_dataloaders"
+module: "steps/step04_dataloaders/dataloaders/survey/demand_response.py"
+path: "steps/step04_dataloaders/dataloaders/survey/demand_response.py"
+repo_relpath: "steps/step04_dataloaders/dataloaders/survey/demand_response.py"
+tags: ["dataloader","survey","demand-response","q8","q11","q12","processed-data"]
+
+summary: >
+  Lädt drei in Step 02 vorverarbeitete Survey-Datensätze rund um Demand-Response:
+  Q8 (Importance-Bewertungen im Wide-Format), Q11 (Benachrichtigungs-Opt-in) und
+  Q12 (Smart-Plug-Bereitschaft). Stellt einen Sammel-Loader sowie drei
+  Einzel-Loader bereit. Bereinigt respondent_id (Excel „.0“-Artefakte, leere/„nan“-IDs).
+
+storage_layout:
+  processed_dir: "data/survey/processed"
+  files:
+    importance:   "question_8_importance_wide.csv"     # respondent_id + 6 Geräte-Spalten (Ratings 1–5, als String eingelesen)
+    notification: "question_11_notify_optin.csv"       # respondent_id, notify_optin
+    smart_plug:   "question_12_smartplug.csv"          # respondent_id, q12_smartplug
+  upstream:
+    - "steps/step02_preprocessing/survey/preprocess_q8_importance_wide.py"
+    - "steps/step02_preprocessing/survey/preprocess_q11_notify_optin.py"
+    - "steps/step02_preprocessing/survey/preprocess_q12_smartplug.py"
+
+functions:
+  - name: "_read_csv_safe(path: Path) -> pd.DataFrame"
+    desc: >
+      Robustes Einlesen (UTF-8); falls Datei fehlt, Warnung und leeres DF.
+      Normalisiert 'respondent_id' zu String, entfernt trailing '.0',
+      setzt leere/'nan' auf NA und dropt fehlende IDs.
+  - name: "load_demand_response() -> dict[str, pd.DataFrame]"
+    desc: "Lädt alle drei Tabellen und gibt {'importance', 'notification', 'smart_plug'} zurück."
+  - name: "load_importance() -> pd.DataFrame"
+    desc: "Direktloader für Q8 (Importance wide)."
+  - name: "load_notification() -> pd.DataFrame"
+    desc: "Direktloader für Q11 (Notify Opt-in)."
+  - name: "load_smart_plug() -> pd.DataFrame"
+    desc: "Direktloader für Q12 (Smart Plug Bereitschaft)."
+
+io_contracts:
+  inputs:
+    - "PROCESSED_DIR/question_8_importance_wide.csv"
+    - "PROCESSED_DIR/question_11_notify_optin.csv"
+    - "PROCESSED_DIR/question_12_smartplug.csv"
+  outputs: "pd.DataFrame je Datei; keine Index-Änderung; Spaltentypen initial als string (nullable)."
+  id_normalization: >
+    'respondent_id' wird als String behandelt, '...\\.0' entfernt,
+    leere/\"nan\" werden entfernt; Zeilen ohne ID werden gedroppt.
+  error_handling:
+    - "Fehlende Datei: Warnung + leeres DataFrame."
+    - "Fehlende 'respondent_id'-Spalte: Warnung und unveränderter Frame."
+  encoding: "UTF-8 (Fallback-Fehlerpfad gibt leeres DF zurück)."
+
+usage:
+  examples: |
+    from steps.step04_dataloaders.dataloaders.survey.demand_response import (
+        load_demand_response, load_importance, load_notification, load_smart_plug
+    )
+
+    dfs = load_demand_response()
+    q8  = dfs["importance"]     # respondent_id + Geräte-Spalten
+    q11 = dfs["notification"]   # respondent_id, notify_optin
+    q12 = dfs["smart_plug"]     # respondent_id, q12_smartplug
+
+    # Einzel-Loader:
+    q8 = load_importance()
+    # Ratings nach Bedarf in Ints casten:
+    for col in q8.columns.drop("respondent_id"):
+        q8[col] = q8[col].astype("Int64")
+
+    q11 = load_notification()
+    q12 = load_smart_plug()
+
+edge_cases:
+  - "CSV fehlt → leeres DF; Aufrufer sollte .empty prüfen."
+  - "Excel-Artefakte in respondent_id (z. B. '12345.0') werden entfernt."
+  - "Leere/Whitespace/'nan' IDs werden gedroppt, um fehlerhafte Joins zu vermeiden."
+  - "Ratings aus Q8 werden als String eingelesen; ggf. in Int64 umwandeln."
+
+implementation_notes:
+  - "PROCESSED_DIR = DATA_ROOT / 'survey' / 'processed' (DATA_ROOT aus dataloaders/io.py)."
+  - "Keine Zeitzonen; reine tabellarische Survey-Antworten."
+  - "Sammel-Loader vereinheitlicht Zugriffe; Einzel-Loader für gezielte Pipelines."
+
+links:
+  repo_web_url: "https://github.com/Joe8u/powere.ch/blob/main/steps/step04_dataloaders/dataloaders/survey/demand_response.py"
+
+embed_fields:
+  - "title"
+  - "summary"
+  - "storage_layout"
+  - "functions"
+  - "usage"
+  - "edge_cases"
+  - "implementation_notes"

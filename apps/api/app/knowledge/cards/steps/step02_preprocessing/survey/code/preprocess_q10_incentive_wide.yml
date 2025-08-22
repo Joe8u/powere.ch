@@ -1,0 +1,101 @@
+id: "code:steps/step02_preprocessing/survey/preprocess_q10_incentive_wide.py#main"
+doc_type: "code_unit"
+lang: "de"
+title: "Survey Q10: Teilnahme & Rabatt (wide) – *_choice / *_pct je Gerät"
+step: "step02_preprocessing"
+module: "steps/step02_preprocessing/survey/preprocess_q10_incentive_wide.py"
+path: "steps/step02_preprocessing/survey/preprocess_q10_incentive_wide.py"
+repo_relpath: "steps/step02_preprocessing/survey/preprocess_q10_incentive_wide.py"
+tags: ["preprocessing","survey","csv","wide","header-row","regex","cleanup"]
+
+summary: >
+  Ermittelt im Survey-Export die Q10-Choice- und Prozent-Spalten je Gerät aus der
+  2. Kopfzeile (header=1), extrahiert Prozentwerte, bereinigt Inkonsistenzen
+  (z. B. 'Nein' oder 'Ja (freiwillig)' ⇒ Prozent = NA) und schreibt ein Wide-CSV
+  mit Spalten 'respondent_id', '<Gerät>_choice' und '<Gerät>_pct' (Int64).
+
+functions:
+  - "main()"
+  - "preprocess(infile: Path, outfile: Path, debug: bool = False) -> None"
+  - "project_root() -> Path"
+  - "find_q10_columns(header_cols: list[str], debug: bool = False)"
+  - "parse_pct(x) -> Int|<NA>"
+  - "is_voluntary(choice_val: str) -> bool"
+  - "is_no(choice_val: str) -> bool"
+
+cli:
+  example: |
+    # aus dem Repo-Root
+    python -m steps.step02_preprocessing.survey.preprocess_q10_incentive_wide
+
+    # mit Pfaden/Debug
+    python -m steps.step02_preprocessing.survey.preprocess_q10_incentive_wide \
+      --infile "data/survey/raw/Energieverbrauch und Teilnahmebereitschaft an Demand-Response-Programmen in Haushalten.csv" \
+      --outfile "data/survey/processed/question_10_incentive_wide.csv" \
+      --debug
+
+inputs:
+  raw_csv: "data/survey/raw/Energieverbrauch und Teilnahmebereitschaft an Demand-Response-Programmen in Haushalten.csv"
+  header_usage:
+    respondent_id: "header=0, skiprows=[1]"
+    q10_detection: "header=1 (2. Kopfzeile enthält Geräte + Teilfragen)"
+  q10_patterns:
+    choice_regex: "^\\s*(<Gerät>)\\s*-\\s*.*(ja|nein|freiw|kompens).*$"
+    pct_regex: "^\\s*(<Gerät>)\\s*-\\s*.*falls\\s*ja.*prozent.*$"
+
+processing:
+  - "respondent_id aus 'flacher' Sicht (header=0, skiprows=[1]) lesen."
+  - "2. Kopfzeile (header=1) scannen, Choice/Pct-Spalten per Regex je Gerät matchen."
+  - "Nur Geräte behalten, für die Choice UND Pct existieren."
+  - "Prozent via parse_pct: erste Ganzzahl extrahieren → Int64."
+  - "Bereinigung: 'Nein' oder 'Ja (freiwillig)' ⇒ *_pct = <NA>."
+  - "Falls *_pct vorhanden aber Choice fehlt ⇒ *_pct = <NA>."
+  - "Wide-Frame mit 'respondent_id', '<Gerät>_choice', '<Gerät>_pct' schreiben."
+
+outputs:
+  processed_csv: "data/survey/processed/question_10_incentive_wide.csv"
+  schema_out: |
+    respondent_id (string)
+    <Gerät>_choice (string | <NA>)
+    <Gerät>_pct (Int64 | <NA>)  # Prozent als ganze Zahl (z. B. 15)
+
+edge_cases:
+  - "Keine vollständigen (choice+pct)-Pärchen gefunden → Abbruch mit Fehlerhinweis."
+  - "Freitext-Prozente ('15 %', '>=20%') → es wird die erste Ganzzahl extrahiert."
+  - "'Ja, f' / 'Ja (freiwillig)' / 'Ja freiwillig' → zählt als freiwillig ⇒ Prozent auf <NA>."
+  - "Gerätenamen werden aus den Spalten übernommen (keine Kanonisierung hier)."
+  - "Encoding-Fallback: 'utf-8' → 'latin-1'."
+
+downstream:
+  - "Wird in Step 06 (a_survey_data_preparer) erkannt: *_choice/_pct werden konsolidiert."
+  - "Ermöglicht robuste Merges mit Q9/Q8, sofern Gerätelabels konsistent sind."
+
+router_hints:
+  intent_category: "erklaerung+code"
+  good_for_questions:
+    - "Wie werden Choice- und Prozent-Spalten automatisch zugeordnet?"
+    - "Wann wird *_pct auf NA gesetzt?"
+    - "Wie werden Prozente aus Freitext extrahiert?"
+
+links:
+  server_path: "/srv/repos/powere.ch/steps/step02_preprocessing/survey/preprocess_q10_incentive_wide.py"
+  repo_web_url: "https://github.com/Joe8u/powere.ch/blob/main/steps/step02_preprocessing/survey/preprocess_q10_incentive_wide.py"
+
+embed_fields:
+  - "title"
+  - "summary"
+  - "processing"
+  - "inputs"
+  - "outputs"
+  - "edge_cases"
+  - "cli"
+  - "downstream"
+  - "body"
+
+body: |
+  # Hinweise
+  - Für Q10 wird die 2. Kopfzeile (header=1) als maßgeblich angesehen; dort stehen
+    die Gerätebezeichnungen und Teilfragen. Das Matching erfolgt Regex-basiert.
+  - Prozentwerte werden als ganze Zahl extrahiert (z. B. '5%' → 5). Komplexe Angaben
+    wie '>=20 %' liefern 20.
+  - 'Nein' und 'Ja (freiwillig)' implizieren keinen Rabattbedarf – deshalb *_pct = <NA>.

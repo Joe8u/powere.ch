@@ -1,0 +1,41 @@
+id: "code:steps/step06_sozio_technisches_simulationsmodell/dr_windows/tre01_peak_price_finder.py#find_top_tre_price_periods"
+doc_type: "code_unit"
+title: "tre01 – Peak-Preis-Finder (mFRR/TRE)"
+lang: "de"
+path: "steps/step06_sozio_technisches_simulationsmodell/dr_windows/tre01_peak_price_finder.py"
+step: "step06_sozio_technisches_simulationsmodell"
+module: "dr_windows"
+tags: ["tre","mFRR","peak-prices","dr_windows","eur_mwh→chf_kwh"]
+summary: >
+  Ermittelt für ein Jahr die N teuersten Zeitpunkte des mFRR-Arbeitspreises
+  (TRE). Rechnet EUR/MWh zu CHF/kWh (FX-Faktor), wählt Top-N, annotiert
+  Wochentag und Stunde und kann optional als CSV speichern.
+functions: ["convert_mwh_to_kwh_price_eur","find_top_tre_price_periods","main"]
+defaults:
+  n_top_cli: "24"
+  fx_default: "1.0"
+formulas:
+  - "price_chf_kwh = (avg_price_eur_mwh / 1000) * fx"
+  - "top = nlargest(n_top, by=price_chf_kwh)"
+inputs:
+  data_sources:
+    - "load_regulation_range(start..end) → Index=timestamp; Spalten: total_called_mw, avg_price_eur_mwh"
+  params:
+    - "year (Jahresbereich start..end)"
+    - "n_top (Anzahl Spitzenperioden)"
+    - "fx (EUR→CHF Multiplikator; None→1.0)"
+outputs:
+  - "DataFrame mit price_chf_kwh, price_eur_mwh_original, weekday, hour"
+  - "optional CSV: data/market/processed/dr_windows/tre_top_periods_<YEAR>[_fx<FX>].csv"
+depends_on:
+  - "steps/step04_dataloaders/dataloaders/market/tertiary_regulation_loader.py::load_regulation_range"
+  - "steps/step04_dataloaders/dataloaders/market/tertiary_regulation_loader.py::list_regulation_months"
+embed_fields: ["title","summary","body","formulas","inputs","outputs"]
+body: |
+  Ablauf:
+   1) lade Jahres-Zeitreihe via load_regulation_range(year),
+   2) sichere Originalpreis als 'price_eur_mwh_original',
+   3) FX robust (None→1.0),
+   4) EUR/MWh → CHF/kWh: price_chf_kwh = (avg_price_eur_mwh/1000)*fx,
+   5) nlargest(n_top, 'price_chf_kwh'), annotiere weekday/hour,
+   6) CLI: --year (Default jüngstes verfügbares Jahr), --top, --fx, --save→CSV.

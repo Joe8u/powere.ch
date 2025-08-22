@@ -1,0 +1,87 @@
+id: "code:steps/step06_sozio_technisches_simulationsmodell/flexibility_potential/a_survey_data_preparer.py#prepare_survey_flexibility_data"
+doc_type: "code_unit"
+title: "Survey-Preparer (Q9/Q10) – Flexibilität je Gerät"
+lang: "de"
+path: "steps/step06_sozio_technisches_simulationsmodell/flexibility_potential/a_survey_data_preparer.py"
+repo_relpath: "steps/step06_sozio_technisches_simulationsmodell/flexibility_potential/a_survey_data_preparer.py"
+step: "step06_sozio_technisches_simulationsmodell"
+module: "flexibility_potential"
+tags: ["survey","preprocessing","Q9","Q10","flexibility","participation","etl"]
+summary: >
+  Aggregiert die Umfragedaten zu Nichtnutzung (Q9) und Anreiz/Teilnahme (Q10) pro
+  respondent_id × device. Unterstützt mehrere Wide-/Long-Layouts (inkl. *_choice/_pct),
+  normalisiert Choices und parst Prozentangaben robust.
+functions:
+  - "_device_cols(df)"
+  - "_melt_device_wide(df, value_name)"
+  - "_melt_q10_wide_choice_pct(df)"
+  - "load_q9_nonuse_long_from_step4()"
+  - "load_q10_incentives_long_from_step4(q9_devices=None)"
+  - "_canon_choice(val)"
+  - "prepare_survey_flexibility_data()"
+constants:
+  APPLIANCES:
+    - "Geschirrspüler"
+    - "Backofen und Herd"
+    - "Fernseher und Entertainment-Systeme"
+    - "Bürogeräte"
+    - "Waschmaschine"
+    - "Staubsauger"
+inputs:
+  data_sources:
+    - "steps.step04_dataloaders.dataloaders.survey.load_nonuse()  # Q9"
+    - "steps.step04_dataloaders.dataloaders.survey.load_incentives()  # Q10"
+  accepted_layouts_q10:
+    - "A1: Wide mit '<device>_choice' / '<device>_pct' (automatisch erkannt)"
+    - "A2: Wide mit Gerätespalten wie APPLIANCES (kombiniertes Feld, wird geparst)"
+    - "B : Respondent-Level-Felder (choice/pct), werden auf Geräte expandiert"
+process:
+  - "Q9 (Nichtnutzung) Wide→Long, map Text→Stunden via Q9_DURATION_MAPPING."
+  - "Q10 je nach Layout erkennen: *_choice/_pct scannen ODER kombiniertes Feld parsen ODER respondent-level expandieren."
+  - "Choice normalisieren: {yes_fixed, yes_conditional, no, unknown_choice}."
+  - "Prozentwerte aus Text extrahieren, '%', ',' behandeln; yes_fixed ⇒ 0.0 %."
+  - "Outer-Merge Q9+Q10 auf respondent_id, device; fehlende Choice ⇒ 'unknown_choice_q10_missing'."
+outputs:
+  dataframe: "pro respondent_id × device"
+  schema:
+    respondent_id: "string|int"
+    device: "string (kanonisch, z. B. 'Geschirrspüler')"
+    survey_max_duration_h: "float (NaN möglich)"
+    survey_incentive_choice: "enum{yes_fixed, yes_conditional, no, unknown_choice, unknown_choice_q10_missing}"
+    survey_incentive_pct_required: "float[%] (NaN möglich)"
+edge_cases:
+  - "Leere Q9/Q10-Frames → leere/partielle Merges, Defaults greifen."
+  - "TV-Sonderfall: 'Fernseher und Entertainment' → 'Fernseher und Entertainment-Systeme'."
+  - "Nur Zahl in Q10 (z. B. '15') → 'Ja, +', pct=15."
+  - "Pauschale Zusage (fix, pauschal) → yes_fixed, pct=0.0."
+  - "Kommagetrennte Prozente ('12,5%') werden zu 12.5."
+router_hints:
+  intent_category: "erklärung+berechnung"
+  good_for_questions:
+    - "Wie werden Q9-Dauern gemappt?"
+    - "Wie interpretiert ihr 'Ja, +15%' vs. 'Ja, pauschal'?"
+    - "Was passiert, wenn nur respondent-level Q10 vorhanden ist?"
+usage_examples:
+  - "from steps.step06_sozio_technisches_simulationsmodell.flexibility_potential.a_survey_data_preparer import prepare_survey_flexibility_data; df = prepare_survey_flexibility_data(); df.head()"
+depends_on:
+  - "steps/step04_dataloaders/dataloaders/survey.py::load_nonuse"
+  - "steps/step04_dataloaders/dataloaders/survey.py::load_incentives"
+links:
+  repo_relpath: "steps/step06_sozio_technisches_simulationsmodell/flexibility_potential/a_survey_data_preparer.py"
+  server_path: "/srv/repos/powere.ch/steps/step06_sozio_technisches_simulationsmodell/flexibility_potential/a_survey_data_preparer.py"
+  repo_web_url: "https://github.com/Joe8u/powere.ch/blob/main/steps/step06_sozio_technisches_simulationsmodell/flexibility_potential/a_survey_data_preparer.py"
+embed_fields: ["title","summary","process","inputs","outputs","edge_cases","usage_examples","body"]
+body: |
+  # Q9 → Stunden
+  Mapping:
+    - Nein, auf keinen Fall → 0.0
+    - Ja, aber maximal für 3 Stunden → 1.5
+    - Ja, für 3 bis 6 Stunden → 4.5
+    - Ja, für 6 bis 12 Stunden → 9.0
+    - Ja, für maximal 24 Stunden → 24.0
+    - Ja, für mehr als 24 Stunden → 30.0
+
+  # Q10 → Choice/Pct
+  *_choice/_pct wird bevorzugt direkt gelesen. Kombinierte Freitexte werden via Regex auf Zahl
+  (Prozent) geparst. 'Ja, f'/'fix/pauschal' ⇒ yes_fixed (0.0 %). Sonst yes_conditional
+  mit Extract der Prozentzahl. Fehlende Angaben ⇒ 'unknown_*'.
