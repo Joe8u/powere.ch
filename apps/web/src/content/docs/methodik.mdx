@@ -5,13 +5,12 @@ description: Überblick des Analyse-Flows vom Rohdateneinzug bis zur Simulation 
 
 import StepFlow from "../../components/StepFlow.tsx";
 
-const steps = [
+export const steps = [
   {
     id: "s1",
     title: "Step 01 – Raw Data",
     teaser: "Survey (N=372), JASM-Haushaltslastprofile, TRE-(mFRR) Monats-CSV.",
-    details:
-`Quellen & Formate:
+    details: `Quellen & Formate:
 - SurveyMonkey-Export (Roh)
 - JASM-Profile (15-min)
 - TRE/mFRR CSV (Swissgrid)
@@ -21,8 +20,7 @@ Siehe auch: steps/step01_raw_data/toc.yml`
     id: "s2",
     title: "Step 02 – Preprocessing",
     teaser: "Normalisierung/Reshaping pro Quelle (z. B. Q1–Q15, lastprofile 2024, TRE parsing).",
-    details:
-`Python-Skripte je Bereich:
+    details: `Python-Skripte je Bereich:
 - survey/preprocess_q*  (wide/long)
 - lastprofile/precompute_lastprofile_2024.py
 - market/preprocess_tertiary_regulation.py`
@@ -31,8 +29,7 @@ Siehe auch: steps/step01_raw_data/toc.yml`
     id: "s3",
     title: "Step 03 – Processed Data",
     teaser: "Konsolidierte, dokumentierte Schemas (Index + Beispieldateien).",
-    details:
-`Schemas & Snapshots:
+    details: `Schemas & Snapshots:
 - survey/processed_files (Index)
 - market/regelenergie (Schema)
 - lastprofile/monthly_2024`
@@ -41,8 +38,7 @@ Siehe auch: steps/step01_raw_data/toc.yml`
     id: "s4",
     title: "Step 04 – Dataloaders",
     teaser: "Loader‐Funktionen als stabile Zugänge zu den verarbeiteten Daten.",
-    details:
-`Beispiele:
+    details: `Beispiele:
 - survey/nonuse.py → load_nonuse(), load_question_9_nonuse()
 - market/tertiary_regulation_loader.py
 - lastprofile/io.py`
@@ -51,8 +47,7 @@ Siehe auch: steps/step01_raw_data/toc.yml`
     id: "s5",
     title: "Step 05 – AI-Guide (RAG)",
     teaser: "Cards → Embeddings → Qdrant; /v1/search & /v1/chat greifen darauf zu.",
-    details:
-`Pipeline:
+    details: `Pipeline:
 - cards/*.yml → build/out/cards.jsonl
 - embeddings (OpenAI fast)
 - Qdrant collection: powere_docs
@@ -62,8 +57,7 @@ Siehe auch: steps/step01_raw_data/toc.yml`
     id: "s6",
     title: "Step 06 – Simulationsmodell",
     teaser: "DR-Windows, Rankings, Simulation der verschiebbaren Energie & Erlöspotentiale.",
-    details:
-`Module:
+    details: `Module:
 - dr_windows/tre01..tre04
 - simulation/tre05..tre06
 Artefakte: tre_windows_csv, tre_ranked_days_csv, simulation_results_csv`
