@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-import logging, time
-from typing import Any, List, Optional, Union
+import os, time, uuid, logging, threading
+from typing import Any, List, Optional, Union, Deque, Dict, Literal, cast
+from collections import deque
 from fastapi import APIRouter, Body, HTTPException, Query
 from pydantic import BaseModel
-import logging
-
 from qdrant_client.http.models import Batch
+from openai.types.chat import ChatCompletionMessageParam
+
 from ..core import (
     embed_batch, ensure_collection, qdrant,
     normalize_point_id, stable_uuid_for,
@@ -14,26 +15,53 @@ from ..core import (
 )
 
 router = APIRouter()
+log = logging.getLogger(__name__)
 
-# -------- Schemas --------
+# ----------------- Konversation-Store (in-memory) -----------------
+CHAT_TTL_MIN = int(os.getenv("CHAT_TTL_MINUTES", "120"))           # Auto-Prune nach x Minuten Inaktivität
+CHAT_MAX_TURNS_STORED = int(os.getenv("CHAT_MAX_TURNS", "10"))     # Max. Runden im Speicher (user+assistant = 2 msgs/Runde)
+HISTORY_SEND_TURNS = int(os.getenv("CHAT_HISTORY_SEND_TURNS", "3"))# Wie viele Runden an das LLM mitsenden
+MAX_CONTEXT_CHARS = int(os.getenv("CHAT_MAX_CONTEXT_CHARS", "1600"))
+
+_lock = threading.Lock()
+_CONV: Dict[str, Deque["ChatMessage"]] = {}
+_LAST_SEEN: Dict[str, float] = {}
+
+def _now() -> float:
+    return time.time()
+
+def _prune_old():
+    cutoff = _now() - CHAT_TTL_MIN * 60
+    stale = [cid for cid, ts in _LAST_SEEN.items() if ts < cutoff]
+    for cid in stale:
+        _CONV.pop(cid, None)
+        _LAST_SEEN.pop(cid, None)
+
+# ----------------- Schemas -----------------
 class IngestDoc(BaseModel):
     id: Optional[str] = None
     title: Optional[str] = None
     url: Optional[str] = None
     content: str
 
+class ChatMessage(BaseModel):
+    role: Literal["user", "assistant", "system"]
+    content: str
+
 class ChatRequest(BaseModel):
     question: str
     top_k: int = 5
+    conversation_id: Optional[str] = None
+    reset: bool = False
 
-# -------- Ingest --------
+# ----------------- Ingest -----------------
 @router.post("/v1/ingest")
 def ingest(docs: List[IngestDoc] = Body(..., min_items=1)):
     ensure_collection()
     try:
         vectors = embed_batch([d.content for d in docs])
     except Exception as e:
-        logging.exception("embedding_failed")
+        log.exception("embedding_failed")
         raise HTTPException(status_code=502, detail=f"embedding_failed: {e}")
 
     ids: List[Union[str, int]] = []
@@ -48,18 +76,18 @@ def ingest(docs: List[IngestDoc] = Body(..., min_items=1)):
         batch = Batch(ids=ids, vectors=vectors, payloads=payloads)
         qdrant.upsert(collection_name=QDRANT_COLLECTION, points=batch, wait=True)
     except Exception as e:
-        logging.exception("qdrant_upsert_failed")
+        log.exception("qdrant_upsert_failed")
         raise HTTPException(status_code=500, detail=f"qdrant_upsert_failed: {e}")
 
     return {"received": len(docs), "collection": QDRANT_COLLECTION}
 
-# -------- Search --------
+# ----------------- Search -----------------
 @router.get("/v1/search")
 def search(q: str = Query(..., min_length=2), top_k: int = 5) -> dict[str, Any]:
     try:
         query_vec = embed_batch([q])[0]
     except Exception as e:
-        logging.exception("embedding_failed")
+        log.exception("embedding_failed")
         raise HTTPException(status_code=502, detail=f"embedding_failed: {e}")
 
     try:
@@ -70,7 +98,7 @@ def search(q: str = Query(..., min_length=2), top_k: int = 5) -> dict[str, Any]:
             with_payload=True,
         )
     except Exception as e:
-        logging.exception("qdrant_search_failed")
+        log.exception("qdrant_search_failed")
         raise HTTPException(status_code=500, detail=f"qdrant_search_failed: {e}")
 
     results = []
@@ -87,20 +115,35 @@ def search(q: str = Query(..., min_length=2), top_k: int = 5) -> dict[str, Any]:
         )
     return {"query": q, "results": results}
 
-# -------- Chat (RAG) --------
+# ----------------- Chat (RAG + Conversation) -----------------
 @router.post("/v1/chat")
 def chat(req: ChatRequest, debug: bool = Query(False)):
     if not chat_client:
         raise HTTPException(status_code=500, detail="chat_backend_not_configured: set OPENAI_API_KEY")
 
+    # Konversation vorbereiten
+    _prune_old()
+    with _lock:
+        if req.reset and req.conversation_id:
+            _CONV.pop(req.conversation_id, None)
+            _LAST_SEEN.pop(req.conversation_id, None)
+
+        conv_id = req.conversation_id or str(uuid.uuid4())
+        if conv_id not in _CONV:
+            _CONV[conv_id] = deque(maxlen=CHAT_MAX_TURNS_STORED * 2)  # 2 Nachrichten pro Runde
+        history = _CONV[conv_id]
+        _LAST_SEEN[conv_id] = _now()
+
     t0 = time.perf_counter()
+    # 1) Embedding der aktuellen Frage
     try:
         query_vec = embed_batch([req.question])[0]
     except Exception as e:
-        logging.exception("embedding_failed")
+        log.exception("embedding_failed")
         raise HTTPException(status_code=502, detail=f"embedding_failed: {e}")
     t1 = time.perf_counter()
 
+    # 2) Retrieval
     try:
         hits = qdrant.search(
             collection_name=QDRANT_COLLECTION,
@@ -109,7 +152,7 @@ def chat(req: ChatRequest, debug: bool = Query(False)):
             with_payload=True,
         )
     except Exception as e:
-        logging.exception("qdrant_search_failed")
+        log.exception("qdrant_search_failed")
         raise HTTPException(status_code=500, detail=f"qdrant_search_failed: {e}")
     t2 = time.perf_counter()
 
@@ -120,10 +163,9 @@ def chat(req: ChatRequest, debug: bool = Query(False)):
         payload = h.payload or {}
         title = payload.get("title") or f"Doc {i}"
         url = payload.get("url")
-        content = payload.get("content") or ""
+        content = (payload.get("content") or "")[:MAX_CONTEXT_CHARS]
         contexts.append(f"[{i}] {title}\n{content}")
         citations.append({"id": str(h.id), "title": title, "url": url, "score": h.score})
-        # kompaktes Debug zu den Treffern:
         retrieval_meta.append({
             "rank": i,
             "id": str(h.id),
@@ -133,33 +175,55 @@ def chat(req: ChatRequest, debug: bool = Query(False)):
             "snippet": content[:160],
         })
 
-    system_msg = (
+    # 3) Prompt-Aufbau inkl. kurzer History
+    sys_msg = (
         "Du bist der AI-Guide von powere.ch. Beantworte Fragen NUR mit Hilfe des Kontexts. "
         "Wenn der Kontext etwas nicht enthält, sage ehrlich, dass du es nicht weißt. "
-        "Fasse dich kurz und füge Quellenhinweise wie [1], [2] ein, wenn relevant."
-    )
-    user_msg = (
-        f"Frage: {req.question}\n\nKontext:\n" + "\n\n".join(contexts)
-        if contexts
-        else f"Frage: {req.question}\n\nKontext: (leer)"
+        "Antworte knapp und füge Quellenhinweise wie [1], [2] ein, wenn relevant."
     )
 
+    # Letzte N Runden (user/assistant) in die Messages einfügen
+    history_to_send: List[ChatCompletionMessageParam] = []
+    if HISTORY_SEND_TURNS > 0 and len(history) > 0:
+        for msg in list(history)[-2 * HISTORY_SEND_TURNS:]:
+            history_to_send.append(
+                cast(ChatCompletionMessageParam, {"role": msg.role, "content": msg.content})
+            )
+
+    user_msg_content = (
+        f"Frage: {req.question}\n\nKontext:\n" + "\n\n".join(contexts)
+        if contexts else f"Frage: {req.question}\n\nKontext: (leer)"
+    )
+
+    # 4) LLM-Aufruf
     try:
+        sys_msg_param  = cast(ChatCompletionMessageParam, {"role": "system", "content": sys_msg})
+        user_msg_param = cast(ChatCompletionMessageParam, {"role": "user",   "content": user_msg_content})
+
+        messages: List[ChatCompletionMessageParam] = [sys_msg_param, *history_to_send, user_msg_param]
         completion = chat_client.chat.completions.create(
             model=CHAT_MODEL,
-            messages=[
-                {"role": "system", "content": system_msg},
-                {"role": "user", "content": user_msg},
-            ],
+            messages=messages,
             temperature=0.2,
         )
-        answer = completion.choices[0].message.content
+        completion = chat_client.chat.completions.create(
+            model=CHAT_MODEL,
+            messages=messages,
+            temperature=0.2,
+        )
+        answer = (completion.choices[0].message.content or "").strip()
     except Exception as e:
-        logging.exception("chat_failed")
+        log.exception("chat_failed")
         raise HTTPException(status_code=502, detail=f"chat_failed: {e}")
     t3 = time.perf_counter()
 
-    # optionale Token-Nutzung robust auslesen (versch. SDK-Versionen)
+    # 5) Konversation speichern (User + Assistant)
+    with _lock:
+        history.append(ChatMessage(role="user", content=req.question))
+        history.append(ChatMessage(role="assistant", content=answer))
+        _LAST_SEEN[conv_id] = _now()
+
+    # 6) Token-Nutzung robust ermitteln
     token_usage = None
     try:
         u = getattr(completion, "usage", None)
@@ -176,6 +240,7 @@ def chat(req: ChatRequest, debug: bool = Query(False)):
         "answer": answer,
         "citations": citations,
         "used_model": CHAT_MODEL,
+        "conversation_id": conv_id,
     }
 
     if debug:
@@ -194,9 +259,9 @@ def chat(req: ChatRequest, debug: bool = Query(False)):
                 "chat_model": CHAT_MODEL,
             },
             "token_usage": token_usage,
-            # kurze Vorschau, damit wir prompt/debuggen können ohne alles zu leaken
             "messages_preview": {
-                "user": user_msg[:240],
+                "history_sent": [m["role"] for m in history_to_send],
+                "user": user_msg_content[:240],
             },
         }
 
