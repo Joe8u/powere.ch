@@ -5,14 +5,14 @@ from typing import Any, Dict, List
 import sys, json, yaml
 
 HERE = Path(__file__).resolve()
-KNOWLEDGE_DIR = HERE.parent
+# FIX: knowledge/ statt knowledge/build/
+KNOWLEDGE_DIR = HERE.parents[1]           # /app/app/knowledge
 CARDS_DIR = KNOWLEDGE_DIR / "cards"
 OUT_DIR = KNOWLEDGE_DIR / "build" / "out"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 JSONL_PATH = OUT_DIR / "cards.jsonl"
 
 def _iter_card_yamls() -> List[Path]:
-    # All YAML under cards/, excluding toc.yml
     files = []
     for p in CARDS_DIR.glob("**/*.yml"):
         if p.name == "toc.yml":
@@ -36,7 +36,6 @@ def _as_text(obj: Any) -> str:
     if isinstance(obj, list):
         return "\n".join(_as_text(x) for x in obj)
     if isinstance(obj, dict):
-        # Flatten dict deterministically
         parts = []
         for k in sorted(obj.keys()):
             parts.append(f"{k}: {_as_text(obj[k])}")
@@ -44,17 +43,13 @@ def _as_text(obj: Any) -> str:
     return str(obj)
 
 def _build_text(card: Dict[str, Any]) -> str:
-    # Try common fields, then fallback to full YAML dump
     fields = []
     for k in ("title", "summary", "description", "body", "notes", "details", "content"):
         if k in card:
             fields.append(_as_text(card[k]))
-
-    # Sometimes content is structured in sections
     for k in ("sections", "items"):
         if k in card:
             fields.append(_as_text(card[k]))
-
     text = "\n\n".join([t for t in fields if t.strip()])
     if not text.strip():
         text = _as_text(card)
@@ -79,7 +74,6 @@ def main() -> int:
 
             text = _build_text(data)
             if not text.strip():
-                # nothing meaningful to embed; skip quietly
                 continue
 
             rec = {
@@ -88,16 +82,13 @@ def main() -> int:
                 "lang": lang,
                 "doc_type": doc_type,
                 "text": text,
-                # keep file info for debugging
                 "src_path": str(p.relative_to(CARDS_DIR)),
             }
             out.write(json.dumps(rec, ensure_ascii=False) + "\n")
             total += 1
 
     print(f"[OK] wrote {total} records -> {JSONL_PATH}")
-    if total == 0:
-        return 1
-    return 0
+    return 0 if total > 0 else 1
 
 if __name__ == "__main__":
     sys.exit(main())
