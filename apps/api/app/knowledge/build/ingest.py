@@ -1,8 +1,10 @@
 # apps/api/app/knowledge/build/ingest.py
 from __future__ import annotations
+
 from pathlib import Path
 import os, sys, json
 from typing import Iterable, Dict, Any, List
+from uuid import UUID, uuid5, NAMESPACE_URL
 
 from qdrant_client import QdrantClient
 from qdrant_client.http.models import VectorParams, Distance, Batch
@@ -17,7 +19,9 @@ JSONL_PATH = OUT_DIR / "cards.jsonl"
 QDRANT_URL = os.getenv("QDRANT_URL", "http://qdrant:6333")
 QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")  # optional
 QDRANT_COLLECTION = os.getenv("QDRANT_COLLECTION", "powere_cards")
-EMBED_MODEL = os.getenv("EMBED_MODEL", "text-embedding-3-small")
+# Akzeptiere EMBED_MODEL (neu) oder EMBEDDING_MODEL (alt)
+EMBED_MODEL = os.getenv("EMBED_MODEL") or os.getenv("EMBEDDING_MODEL") or "text-embedding-3-small"
+
 
 def _iter_jsonl(p: Path) -> Iterable[Dict[str, Any]]:
     with p.open("r", encoding="utf-8") as f:
@@ -25,9 +29,11 @@ def _iter_jsonl(p: Path) -> Iterable[Dict[str, Any]]:
             if line.strip():
                 yield json.loads(line)
 
+
 def _embed_texts(client: OpenAI, texts: List[str], model: str) -> List[List[float]]:
     resp = client.embeddings.create(model=model, input=texts)
     return [d.embedding for d in resp.data]
+
 
 def _ensure_collection(client: QdrantClient, name: str, dim: int) -> None:
     cols = client.get_collections().collections
@@ -37,6 +43,19 @@ def _ensure_collection(client: QdrantClient, name: str, dim: int) -> None:
             collection_name=name,
             vectors_config=VectorParams(size=dim, distance=Distance.COSINE),
         )
+
+
+def _make_point_id(raw: str) -> str:
+    """
+    Qdrant Point-ID muss unsigned int oder UUID sein.
+    - Wenn `raw` schon eine UUID ist -> normalisiert zurückgeben
+    - sonst deterministische UUIDv5 aus dem String bilden
+    """
+    try:
+        return str(UUID(raw))
+    except Exception:
+        return str(uuid5(NAMESPACE_URL, raw))
+
 
 def main() -> int:
     if not JSONL_PATH.exists():
@@ -88,7 +107,8 @@ def main() -> int:
         if len(texts_batch) >= BATCH:
             vecs = _embed_texts(oai, texts_batch, EMBED_MODEL)
             for r, v in zip(records_batch, vecs):
-                buf_ids.append(r["id"])  # benutze die echte ID
+                rid = str(r.get("id", ""))  # Original-ID im Payload behalten
+                buf_ids.append(_make_point_id(rid))  # aber als UUID upserten
                 buf_vecs.append(v)
                 payload = {k: r[k] for k in r.keys() if k != "text"}
                 buf_payloads.append(payload)
@@ -100,7 +120,8 @@ def main() -> int:
     if texts_batch:
         vecs = _embed_texts(oai, texts_batch, EMBED_MODEL)
         for r, v in zip(records_batch, vecs):
-            buf_ids.append(r["id"])
+            rid = str(r.get("id", ""))
+            buf_ids.append(_make_point_id(rid))
             buf_vecs.append(v)
             payload = {k: r[k] for k in r.keys() if k != "text"}
             buf_payloads.append(payload)
@@ -109,6 +130,7 @@ def main() -> int:
 
     print(f"[OK] ingested {total} chunks into Qdrant collection '{QDRANT_COLLECTION}' (dim={dim})")
     return 0
+
 
 if __name__ == "__main__":
     sys.exit(main())
