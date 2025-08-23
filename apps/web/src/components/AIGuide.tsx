@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect, useRef } from "react";
 
 type Citation = { id: string; title?: string; url?: string | null; score?: number };
 type SearchItem = { id: string; title?: string; url?: string | null; score: number; snippet?: string };
@@ -13,6 +13,10 @@ type Meta = {
 type Msg = { role: "user" | "assistant"; content: string; citations?: Citation[]; meta?: Meta | null };
 
 export default function AIGuide(props: { apiBase?: string }) {
+  const listRef = useRef<HTMLDivElement | null>(null);
+  const endRef = useRef<HTMLDivElement | null>(null);
+  const taRef = useRef<HTMLTextAreaElement | null>(null);
+
   const [mode, setMode] = useState<"search" | "ask">("search");
   const [q, setQ] = useState("");
   const [k, setK] = useState(5);
@@ -53,6 +57,23 @@ export default function AIGuide(props: { apiBase?: string }) {
     })();
     return () => { alive = false; };
   }, [apiBase]);
+
+  // --- UI Helpers ---
+  const MAX_TA_HEIGHT = 180;
+  const autoSizeTA = () => {
+    const el = taRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    const newH = Math.min(MAX_TA_HEIGHT, el.scrollHeight);
+    el.style.height = `${newH}px`;
+    el.style.overflowY = el.scrollHeight > newH ? "auto" : "hidden";
+  };
+  useEffect(autoSizeTA, [q, mode]);
+
+  // Auto-Scroll zum neuesten Eintrag
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [messages, loading]);
 
   const tabStyle = (active: boolean): React.CSSProperties => ({
     padding: "6px 12px",
@@ -157,31 +178,9 @@ export default function AIGuide(props: { apiBase?: string }) {
         <button onClick={() => setMode("ask")} style={tabStyle(mode==="ask")}>Ask</button>
       </div>
 
-      <textarea
-        value={q}
-        onChange={(e)=>setQ(e.target.value)}
-        placeholder={mode==="search" ? "Suche (z. B. nonuse loader)" : "Frage stellen…"}
-        rows={4}
-        style={{ width: "100%", padding: 12, borderRadius: 8, border: "1px solid #ccc", marginBottom: 12 }}
-      />
-      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-        {mode==="search" ? (
-          <button onClick={doSearch} disabled={loading || !q.trim() || apiOK === false}
-            style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid #333", background: "#111", color: "#fff", cursor: "pointer" }}>
-            {loading ? "Suchen…" : "Search"}
-          </button>
-        ) : (
-          <button onClick={doAsk} disabled={loading || !q.trim() || apiOK === false}
-            style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid #333", background: "#111", color: "#fff", cursor: "pointer" }}>
-            {loading ? "Fragen…" : "Ask"}
-          </button>
-        )}
-      </div>
-
-      {err && <div style={{ color: "#b00020", marginBottom: 12 }}>⚠ {err}</div>}
-
+      {/* Antworten/Ergebnisse OBERHALB der Eingabe */}
       {mode==="search" && results.length>0 && (
-        <div style={{ display: "grid", gap: 12 }}>
+        <div style={{ display: "grid", gap: 12, marginBottom: 12 }}>
           {results.map((r)=>(
             <div key={String(r.id)} style={{ border: "1px solid #ddd", borderRadius: 10, padding: 12 }}>
               <div style={{ display: "flex", gap: 8, alignItems: "baseline", flexWrap:"wrap" }}>
@@ -200,7 +199,18 @@ export default function AIGuide(props: { apiBase?: string }) {
       {mode==="ask" && (
         <>
           {messages.length > 0 && (
-            <div style={{ display:"grid", gap:10, marginBottom:12 }}>
+            <div
+              ref={listRef}
+              style={{
+                maxHeight: "50vh",   // dynamisch (wächst mit Viewport)
+                minHeight: 120,
+                overflow: "auto",
+                display:"grid",
+                gap:10,
+                marginBottom:12,
+                paddingRight: 4,
+              }}
+            >
               {messages.map((m, idx)=>(
                 <div key={idx} style={{ alignSelf: m.role === "user" ? "end" : "start", justifySelf: m.role === "user" ? "end" : "start", maxWidth:"100%" }}>
                   <div style={{
@@ -230,6 +240,7 @@ export default function AIGuide(props: { apiBase?: string }) {
                   )}
                 </div>
               ))}
+              <div ref={endRef} />
             </div>
           )}
 
@@ -291,6 +302,49 @@ export default function AIGuide(props: { apiBase?: string }) {
           )}
         </>
       )}
+
+      {/* Eingabebereich (unten), mit Enter-to-send & Auto-Resize */}
+      <textarea
+        ref={taRef}
+        value={q}
+        onChange={(e)=>setQ(e.target.value)}
+        onInput={autoSizeTA}
+        onFocus={autoSizeTA}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            if (!q.trim() || apiOK === false || loading) return;
+            mode === "search" ? doSearch() : doAsk();
+          }
+        }}
+        placeholder={mode==="search" ? "Suche (z. B. nonuse loader)" : "Frage stellen…"}
+        rows={1}
+        style={{
+          width: "100%",
+          padding: 12,
+          borderRadius: 8,
+          border: "1px solid #ccc",
+          marginTop: 8,
+          marginBottom: 12,
+          resize: "none",
+          lineHeight: "1.4",
+        }}
+      />
+      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+        {mode==="search" ? (
+          <button onClick={doSearch} disabled={loading || !q.trim() || apiOK === false}
+            style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid #333", background: "#111", color: "#fff", cursor: "pointer" }}>
+            {loading ? "Suchen…" : "Search"}
+          </button>
+        ) : (
+          <button onClick={doAsk} disabled={loading || !q.trim() || apiOK === false}
+            style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid #333", background: "#111", color: "#fff", cursor: "pointer" }}>
+            {loading ? "Fragen…" : "Ask"}
+          </button>
+        )}
+      </div>
+
+      {err && <div style={{ color: "#b00020", marginBottom: 12 }}>⚠ {err}</div>}
     </div>
   );
 }
