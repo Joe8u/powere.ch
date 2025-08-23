@@ -1,21 +1,16 @@
 id: "steps/step01_raw_data/lastprofile/jasm_ownership_of_appliances"
-doc_type: "doc"
+doc_type: "page"
 title: "JASM – Ownership of electrical appliances 2015/2035/2050"
 lang: "de"
-summary: >
-  Gerätebesitzraten nach Geräte-/Label-Typ und Gebäudetyp für 2015, 2035, 2050.
-sources:
-  - name: "SCCER JASM – Ownership of electrical appliances 2015, 2035, 2050"
-    url: "https://data.sccer-jasm.ch/ownership-of-appliances-in-households/2020-03-02/"
-files:
-  - archive: "jasm-ownership-of-appliances-in-households-2020-03-02.zip"
-    contains: ["Ownership_2015_2035_2050.csv", "README.md", "datapackage.json"]
-    note: "CSV für Besitzraten (Ownership_rate)"
-schema:
-  fields:
-    - name: "Appliances"                      ; type: "text"
-    - name: "Dwelling type"                   ; type: "text"
-    - name: "Year"                            ; type: "integer"
-    - name: "Energy effiency label / type"    ; type: "text"
-    - name: "Ownership_rate"                  ; type: "percentage"
-license: "Siehe JASM-Datenseite/README im Zip"
+summary: "Bestandsraten von Geräten nach Gebäudetyp, Effizienzlabel/Typ und Jahr."
+body: |
+  Quelle: https://data.sccer-jasm.ch/ownership-of-appliances-in-households/2020-03-02/
+  Package version: latest
+  Description: Appliances, dwelling type, year, energy efficiency label/type, ownership rate.
+  Download: Ownership_2015_2035_2050.csv
+  Feld-Doku:
+    - Appliances (text)
+    - Dwelling type (text)
+    - Year (integer)
+    - Energy efficiency label / type (text)
+    - Ownership_rate (percentage)

@@ -1,26 +1,16 @@
 id: "steps/step01_raw_data/lastprofile/jasm_household_daily_load_curves"
-doc_type: "doc"
-title: "JASM – Household daily load curves 2015/2035/2050"
+doc_type: "page"
+title: "JASM – Household Daily Load Curves"
 lang: "de"
-summary: >
-  Stündliche Lastkurven für Haushaltsgeräte (Jahre 2015, 2035, 2050) zur Ableitung
-  von 15-Minuten-Lastprofilen durch Interpolation (vgl. step02_preprocessing/lastprofile).
-sources:
-  - name: "SCCER JASM – Electricity load curves of appliances for 2015, 2035 and 2050"
-    url: "https://data.sccer-jasm.ch/household-daily-load-curves-2015-2035-2050/2020-02-03/"
-files:
-  - path_hint: "data/lastprofile/raw/Swiss_load_curves_2015_2035_2050.csv"
-    note: "CSV liegt entpackt aus dem JASM-Zip im Repo unter data/lastprofile/raw/"
-schema:
-  description: "Spalten der CSV laut Preprocessing-Skripten und JASM-Dokumentation"
-  fields:
-    - name: "Year"           ; type: "integer"   ; desc: "Jahr (2015, 2035, 2050)"
-    - name: "Month"          ; type: "integer"   ; desc: "Monat 1–12"
-    - name: "Day type"       ; type: "text"      ; desc: "weekday | weekend"
-    - name: "Time"           ; type: "text"      ; desc: "Uhrzeit (HH:MM:SS) – stündliches Raster"
-    - name: "Appliances"     ; type: "text"      ; desc: "Gerätekategorie"
-    - name: "Power (MW)"     ; type: "number"    ; desc: "Leistung in MW (stündlicher Durchschnitt)"
-processing_notes:
-  - "In step02_preprocessing/lastprofile/precompute_lastprofile_2024.py wird linear zwischen 2015 und 2035 interpoliert."
-  - "Stündliche Werte werden auf 15-Minuten-Slots gemappt (Time → HH:00:00, dann per Kalender-Join verteilt)."
-license: "Siehe JASM-Datenseite/README im Zip"
+summary: "Tageslastkurven von Haushaltsgeräten (JASM)."
+body: |
+  Quelle: https://data.sccer-jasm.ch/ownership-of-appliances-in-households/2020-03-02/
+  Package version: latest
+  Description: Household daily load curves by appliance category.
+  Download: ZIP/CSV verfügbar
+  Felder (Beispiel):
+    - timestamp (datetime)
+    - power_w (float)
+    - appliance_group (string)
+notes:
+  - "Lizenz/Gebrauch gemäss JASM-Seite prüfen."
