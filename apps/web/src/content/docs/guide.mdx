@@ -1,11 +1,13 @@
 ---
-title: KI-Guide (Beta)
-description: Frag den KI-Guide über Daten, Loader & Methodik. Beta-Version.
+title: AI-Guide (Beta)
+description: Frag den AI-Guide über Daten, Loader & Methodik. Beta-Version.
 ---
 
 import AIGuide from "../../components/AIGuide.tsx";
+import ChatWidget from "../../components/ChatWidget.tsx";
 
-Willkommen beim **KI-Guide (Beta)**. Stelle Fragen zur Datenbasis, zu Dataloaders, Pfaden und Funktionen.  
+Willkommen beim **AI-Guide (Beta)**. Stelle Fragen zur Datenbasis, zu Dataloaders, Pfaden und Funktionen.  
 Hinweis: Der Guide antwortet **nur aus dem eingebetteten Kontext** (RAG).
 
 <AIGuide client:load apiBase="https://api.powere.ch" />
+<ChatWidget client:load apiBase="https://api.powere.ch" suppressOnGuide={false} />
