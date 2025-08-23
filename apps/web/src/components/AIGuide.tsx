@@ -21,7 +21,6 @@ export default function AIGuide(props: { apiBase?: string }) {
   const [apiOK, setApiOK] = useState<boolean | null>(null);
 
   const [results, setResults] = useState<SearchItem[]>([]);
-
   const [messages, setMessages] = useState<Msg[]>([]);
   const [lastCitations, setLastCitations] = useState<Citation[]>([]);
   const [lastMeta, setLastMeta] = useState<Meta | null>(null);
@@ -30,7 +29,7 @@ export default function AIGuide(props: { apiBase?: string }) {
 
   const apiBase = useMemo(() => {
     if (props.apiBase && props.apiBase.trim()) return props.apiBase;
-    // @ts-ignore
+    // @ts-ignore PUBLIC_ Variablen werden beim Build ersetzt
     const envBase = (import.meta as any)?.env?.PUBLIC_API_BASE as string | undefined;
     if (envBase && envBase.trim()) return envBase;
     if (typeof window !== "undefined") {
@@ -39,6 +38,7 @@ export default function AIGuide(props: { apiBase?: string }) {
     return "http://127.0.0.1:9000";
   }, [props.apiBase]);
 
+  // API-Reachability
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -51,7 +51,7 @@ export default function AIGuide(props: { apiBase?: string }) {
         setApiOK(false);
       }
     })();
-    return () => { alive = false };
+    return () => { alive = false; };
   }, [apiBase]);
 
   const tabStyle = (active: boolean): React.CSSProperties => ({
@@ -82,11 +82,8 @@ export default function AIGuide(props: { apiBase?: string }) {
     setLoading(true); setErr(null); setLastCitations([]); setLastMeta(null);
     try {
       const url = `${apiBase}/v1/chat${debug ? "?debug=1" : ""}`;
-      const body = {
-        question: q,
-        top_k: k,
-        conversation_id: conversationId || undefined,
-      };
+      const body: any = { question: q, top_k: k };
+      if (conversationId) body.conversation_id = conversationId;
 
       const r = await fetch(url, {
         method: "POST",
@@ -104,7 +101,11 @@ export default function AIGuide(props: { apiBase?: string }) {
         setConversationId(data.conversation_id);
       }
 
-      setMessages((prev) => [...prev, { role: "user", content: q }, { role: "assistant", content: assistantText, citations, meta }]);
+      setMessages((prev) => [
+        ...prev,
+        { role: "user", content: q },
+        { role: "assistant", content: assistantText, citations, meta },
+      ]);
       setLastCitations(citations);
       setLastMeta(meta);
       setQ("");
@@ -120,13 +121,7 @@ export default function AIGuide(props: { apiBase?: string }) {
     setLastCitations([]);
     setLastMeta(null);
     setErr(null);
-    setConversationId(null); // neue Session; Server erzeugt neue ID beim nächsten Turn
-  }
-
-  function copyMeta() {
-    if (!lastMeta) return;
-    const raw = JSON.stringify(lastMeta, null, 2);
-    navigator.clipboard?.writeText(raw).catch(() => {});
+    setConversationId(null);
   }
 
   return (
@@ -269,6 +264,9 @@ export default function AIGuide(props: { apiBase?: string }) {
                 <Chip>Embed: <strong>{lastMeta.backend.embed_backend}</strong></Chip>
                 <Chip>Model: <strong>{lastMeta.backend.chat_model}</strong></Chip>
                 {lastMeta.token_usage && <Chip>Tokens: <strong>{lastMeta.token_usage.total_tokens ?? "-"}</strong></Chip>}
+                {lastMeta.messages_preview?.history_sent && lastMeta.messages_preview.history_sent.length > 0 && (
+                  <Chip>History: <strong>{lastMeta.messages_preview.history_sent.join(" → ")}</strong></Chip>
+                )}
               </div>
 
               <div style={{ marginTop:12 }}>
