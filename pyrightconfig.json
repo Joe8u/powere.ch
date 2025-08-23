@@ -1,16 +1,11 @@
 {
-  "pythonVersion": "3.9",
+  "pythonVersion": "3.11",
   "venvPath": ".",
   "venv": ".venv",
-  "extraPaths": [],
-  "include": [
-    "steps"
-  ],
+  "extraPaths": ["apps/api"],
+  "include": ["apps/api", "steps"],
   "exclude": [
-    "apps/api",
-    "processing",
     "**/.venv",
-    "**/__pycache__",
-    "python"
+    "**/__pycache__"
   ]
 }

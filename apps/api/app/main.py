@@ -1,3 +1,4 @@
+#apps/api/app/main.py
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
@@ -5,7 +6,7 @@ from fastapi.responses import JSONResponse
 import os
 
 from .core import EMBED_BACKEND, EMBED_DIM, QDRANT_COLLECTION, CHAT_MODEL, chat_client
-from .routers.rag import router as rag_router
+from app.routers.ai_guide_router import router as ai_router
 
 DEFAULT_ORIGINS = "https://www.powere.ch,https://powere.ch,http://localhost:4321"
 CORS_ORIGINS = [o.strip() for o in os.getenv("API_CORS_ORIGINS", DEFAULT_ORIGINS).split(",") if o.strip()]
@@ -52,4 +53,4 @@ def health_alias():
 def ping():
     return {"msg": "pong"}
 
-app.include_router(rag_router)
+app.include_router(ai_router, tags=["ai-guide"])
