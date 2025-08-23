@@ -4,6 +4,7 @@ description: Überblick des Analyse-Flows vom Rohdateneinzug bis zur Simulation 
 ---
 
 import StepFlow from "../../components/StepFlow.tsx";
+import ChatWidget from "../../components/ChatWidget.tsx";
 
 export const steps = [
   {
@@ -65,3 +66,4 @@ Artefakte: tre_windows_csv, tre_ranked_days_csv, simulation_results_csv`
 ];
 
 <StepFlow client:load steps={steps} />
+<ChatWidget client:load apiBase="https://api.powere.ch" />

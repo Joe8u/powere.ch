@@ -22,6 +22,7 @@ hero:
 ---
 
 import { Card, CardGrid, LinkButton } from '@astrojs/starlight/components';
+import ChatWidget from "../../components/ChatWidget.tsx";
 
 ## Warum powere.ch?
 
@@ -51,3 +52,4 @@ Ich sehe das Projekt als Ausgangspunkt für meine berufliche Zukunft im Energies
     <LinkButton href="/guide/" icon="bot" variant="secondary">Zum Guide (Beta)</LinkButton>
   </Card>
 </CardGrid>
+<ChatWidget client:load apiBase="https://api.powere.ch" />
