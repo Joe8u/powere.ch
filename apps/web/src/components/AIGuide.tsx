@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 
 type Citation = { id: string; title?: string; url?: string | null; score?: number };
 type SearchItem = { id: string; title?: string; url?: string | null; score: number; snippet?: string };
@@ -9,19 +9,40 @@ export default function AIGuide(props: { apiBase?: string }) {
   const [k, setK] = useState(5);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [apiOK, setApiOK] = useState<boolean | null>(null);
 
   const [results, setResults] = useState<SearchItem[]>([]);
   const [answer, setAnswer] = useState<string>("");
   const [citations, setCitations] = useState<Citation[]>([]);
 
   const apiBase = useMemo(() => {
+    // Reihenfolge: Prop -> PUBLIC_API_BASE -> Hostname:9000 (lokal) -> Fallback 127.0.0.1
     if (props.apiBase && props.apiBase.trim()) return props.apiBase;
+    // @ts-ignore PUBLIC_ Variablen sind zur Buildzeit inline
+    const envBase = (import.meta as any)?.env?.PUBLIC_API_BASE as string | undefined;
+    if (envBase && envBase.trim()) return envBase;
     if (typeof window !== "undefined") {
       // Dev: localhost → 9000; Prod: gleiche Hostname:9000 (da Nginx statisch, API separat)
       return `${window.location.protocol}//${window.location.hostname}:9000`;
     }
     return "http://127.0.0.1:9000";
   }, [props.apiBase]);
+
+  // API-Reachability anzeigen
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const r = await fetch(`${apiBase}/v1/ping`, { method: "GET" });
+        if (!alive) return;
+        setApiOK(r.ok);
+      } catch {
+        if (!alive) return;
+        setApiOK(false);
+      }
+    })();
+    return () => { alive = false };
+  }, [apiBase]);
 
   async function doSearch() {
     setLoading(true); setErr(null); setResults([]);
@@ -60,8 +81,12 @@ export default function AIGuide(props: { apiBase?: string }) {
   return (
     <div style={{ maxWidth: 900, margin: "2rem auto", padding: "1rem" }}>
       <h1 style={{ marginBottom: "0.5rem" }}>AI-Guide</h1>
-      <div style={{ fontSize: 14, opacity: 0.8, marginBottom: "1rem" }}>
+      
+      <div style={{ fontSize: 14, opacity: 0.8, marginBottom: "1rem", display:"flex", gap:8, alignItems:"center" }}>
         API: <code>{apiBase}</code>
+        {apiOK === null ? <span>· prüfe…</span> :
+        apiOK ? <span style={{color:"#0a7"}}>· verbunden</span> :
+                <span style={{color:"#b00020"}}>· nicht erreichbar</span>}
       </div>
 
       <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
