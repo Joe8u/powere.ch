@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging, time
 from typing import Any, List, Optional, Union
 from fastapi import APIRouter, Body, HTTPException, Query
 from pydantic import BaseModel
@@ -9,7 +10,7 @@ from qdrant_client.http.models import Batch
 from ..core import (
     embed_batch, ensure_collection, qdrant,
     normalize_point_id, stable_uuid_for,
-    QDRANT_COLLECTION, chat_client, CHAT_MODEL,
+    QDRANT_COLLECTION, chat_client, CHAT_MODEL, EMBED_BACKEND,
 )
 
 router = APIRouter()
@@ -88,15 +89,17 @@ def search(q: str = Query(..., min_length=2), top_k: int = 5) -> dict[str, Any]:
 
 # -------- Chat (RAG) --------
 @router.post("/v1/chat")
-def chat(req: ChatRequest):
+def chat(req: ChatRequest, debug: bool = Query(False)):
     if not chat_client:
         raise HTTPException(status_code=500, detail="chat_backend_not_configured: set OPENAI_API_KEY")
 
+    t0 = time.perf_counter()
     try:
         query_vec = embed_batch([req.question])[0]
     except Exception as e:
         logging.exception("embedding_failed")
         raise HTTPException(status_code=502, detail=f"embedding_failed: {e}")
+    t1 = time.perf_counter()
 
     try:
         hits = qdrant.search(
@@ -108,9 +111,11 @@ def chat(req: ChatRequest):
     except Exception as e:
         logging.exception("qdrant_search_failed")
         raise HTTPException(status_code=500, detail=f"qdrant_search_failed: {e}")
+    t2 = time.perf_counter()
 
-    contexts: List[str] = []
-    citations: List[dict[str, Any]] = []
+    contexts: list[str] = []
+    citations: list[dict[str, Any]] = []
+    retrieval_meta: list[dict[str, Any]] = []
     for i, h in enumerate(hits, start=1):
         payload = h.payload or {}
         title = payload.get("title") or f"Doc {i}"
@@ -118,6 +123,15 @@ def chat(req: ChatRequest):
         content = payload.get("content") or ""
         contexts.append(f"[{i}] {title}\n{content}")
         citations.append({"id": str(h.id), "title": title, "url": url, "score": h.score})
+        # kompaktes Debug zu den Treffern:
+        retrieval_meta.append({
+            "rank": i,
+            "id": str(h.id),
+            "title": title,
+            "url": url,
+            "score": h.score,
+            "snippet": content[:160],
+        })
 
     system_msg = (
         "Du bist der AI-Guide von powere.ch. Beantworte Fragen NUR mit Hilfe des Kontexts. "
@@ -143,5 +157,47 @@ def chat(req: ChatRequest):
     except Exception as e:
         logging.exception("chat_failed")
         raise HTTPException(status_code=502, detail=f"chat_failed: {e}")
+    t3 = time.perf_counter()
 
-    return {"answer": answer, "citations": citations, "used_model": CHAT_MODEL}
+    # optionale Token-Nutzung robust auslesen (versch. SDK-Versionen)
+    token_usage = None
+    try:
+        u = getattr(completion, "usage", None)
+        if u:
+            token_usage = {
+                "prompt_tokens": getattr(u, "prompt_tokens", None) or getattr(u, "input_tokens", None),
+                "completion_tokens": getattr(u, "completion_tokens", None) or getattr(u, "output_tokens", None),
+                "total_tokens": getattr(u, "total_tokens", None),
+            }
+    except Exception:
+        token_usage = None
+
+    resp: dict[str, Any] = {
+        "answer": answer,
+        "citations": citations,
+        "used_model": CHAT_MODEL,
+    }
+
+    if debug:
+        resp["meta"] = {
+            "top_k": req.top_k,
+            "timing_ms": {
+                "embedding": int((t1 - t0) * 1000),
+                "search":    int((t2 - t1) * 1000),
+                "llm":       int((t3 - t2) * 1000),
+                "total":     int((t3 - t0) * 1000),
+            },
+            "retrieval": retrieval_meta,
+            "backend": {
+                "collection": QDRANT_COLLECTION,
+                "embed_backend": EMBED_BACKEND,
+                "chat_model": CHAT_MODEL,
+            },
+            "token_usage": token_usage,
+            # kurze Vorschau, damit wir prompt/debuggen können ohne alles zu leaken
+            "messages_preview": {
+                "user": user_msg[:240],
+            },
+        }
+
+    return resp
