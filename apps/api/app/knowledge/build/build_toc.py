@@ -1,81 +1,105 @@
 # apps/api/app/knowledge/build/build_toc.py
 from __future__ import annotations
 from pathlib import Path
+from typing import Any, Dict, List, Tuple
 import sys
 import yaml
 
 HERE = Path(__file__).resolve()
-KNOWLEDGE_DIR = HERE.parents[1]            # .../app/knowledge
-CARDS_DIR = KNOWLEDGE_DIR / "cards"        # .../app/knowledge/cards
+KNOWLEDGE_DIR = HERE.parent
+CARDS_DIR = KNOWLEDGE_DIR / "cards"
+REPO_ROOT = HERE.parents[3]  # /app inside the container
 
-def _load_yaml(p: Path) -> dict:
+SCHEMES = ("code:", "doc:", "toc:", "explainer:", "artifact:")
+
+def _find_toc_files() -> List[Path]:
+    return sorted(CARDS_DIR.glob("**/toc.yml"))
+
+def _split_scheme(s: str) -> Tuple[str, str]:
+    for scheme in SCHEMES:
+        if s.startswith(scheme):
+            return scheme[:-1], s[len(scheme):]
+    return "", s
+
+def _resolve_ref(scheme: str, target: str, *, base_dir: Path) -> Path:
+    """
+    Resolve a child item to a filesystem path to validate existence.
+    - code:<repo-relative path>[#anchor]   -> REPO_ROOT / path
+    - toc:/doc:/explainer:/artifact:<cards-relative path> -> CARDS_DIR / path
+    """
+    # strip optional anchor
+    path_part = target.split("#", 1)[0].lstrip("/")
+
+    if scheme == "code":
+        return (REPO_ROOT / path_part).resolve()
+    else:
+        # For toc/doc/explainer/artifact we expect a path inside cards/
+        return (CARDS_DIR / path_part).resolve()
+
+def _load_yaml(p: Path) -> Dict[str, Any]:
     with p.open("r", encoding="utf-8") as f:
         return yaml.safe_load(f) or {}
 
-def _is_code_ref(x: str) -> bool:
-    return isinstance(x, str) and x.startswith("code:")
-
-def _code_target(x: str) -> Path:
-    # Format: code:steps/stepXX/path/to/file.py#module
-    target = x.split("code:", 1)[1]
-    file_part = target.split("#", 1)[0]
-    # pfad ist relativ zum Repo-Root; wir leiten Root von knowledge/ ab
-    repo_root = KNOWLEDGE_DIR.parents[2]   # .../apps/api/app -> .../(repo root)
-    return (repo_root / file_part).resolve()
-
 def main() -> int:
-    if not CARDS_DIR.exists():
-        print(f"[ERROR] cards dir not found: {CARDS_DIR}", file=sys.stderr)
-        return 1
-
-    tocs = sorted(CARDS_DIR.glob("**/toc.yml"))
-    if not tocs:
-        print("[WARN] no toc.yml files found")
-        return 0
-
+    tocs = _find_toc_files()
     print(f"[INFO] found {len(tocs)} toc.yml files\n")
-    errs = 0
 
-    for toc in tocs:
-        data = _load_yaml(toc)
-        id_ = data.get("id")
-        doc_type = data.get("doc_type")
-        title = data.get("title")
-        children = data.get("children") or []
+    missing_total = 0
+    for toc_path in tocs:
+        toc = _load_yaml(toc_path)
+        toc_id = toc.get("id") or str(toc_path.relative_to(CARDS_DIR).with_suffix(""))
+        title = toc.get("title", toc_id)
+        doc_type = toc.get("doc_type", "toc")
 
-        print(f"┌─ TOC: {toc.relative_to(CARDS_DIR)}")
-        print(f"│  id={id_!r}, doc_type={doc_type!r}, title={title!r}")
-        if doc_type != "toc":
-            print("│  [WARN] doc_type != 'toc'")
-        if not children:
-            print("│  [WARN] no children")
-        else:
-            for ch in children:
-                if isinstance(ch, str):
-                    if _is_code_ref(ch):
-                        target = _code_target(ch)
-                        ok = target.exists()
-                        print(f"│   • {ch}  -> {'OK' if ok else 'MISSING'} : {target}")
-                        if not ok:
-                            errs += 1
-                    else:
-                        # wir erlauben sowohl weitere YAML-Pfade als auch Card-IDs
-                        if ch.endswith(".yml"):
-                            yml = (toc.parent / ch).resolve() if not ch.startswith("steps/") else (CARDS_DIR / ch)
-                            ok = yml.exists()
-                            print(f"│   • {ch}  -> {'OK' if ok else 'MISSING'} : {yml}")
-                            if not ok:
-                                errs += 1
-                        else:
-                            print(f"│   • {ch}  (assumed card-id or external)")
+        print(f"┌─ TOC: {toc_path.relative_to(CARDS_DIR)}")
+        print(f"│  id='{toc_id}', doc_type='{doc_type}', title='{title}'")
+
+        children = toc.get("children") or []
+        for child in children:
+            if not isinstance(child, str):
+                print(f"│   • [WARN] skip non-string child: {child!r}")
+                continue
+
+            scheme, target = _split_scheme(child)
+            if scheme in ("doc", "explainer", "artifact"):
+                # We don’t force existence here (could be remote or to-be-generated)
+                # but if it looks like a local path, we can warn if missing.
+                p = _resolve_ref(scheme, target, base_dir=toc_path.parent)
+                if p.suffix in (".yml", ".yaml") and not p.exists():
+                    print(f"│   • {child}  -> MISSING : {p}")
+                    missing_total += 1
                 else:
-                    print(f"│   • [UNSUPPORTED CHILD TYPE] {ch!r}")
+                    print(f"│   • {child}  (assumed card-id or external)")
+                continue
+
+            if scheme == "toc":
+                p = _resolve_ref(scheme, target, base_dir=toc_path.parent)
+                if not p.exists():
+                    print(f"│   • {child}  -> MISSING : {p}")
+                    missing_total += 1
+                else:
+                    print(f"│   • {child}  -> OK")
+                continue
+
+            if scheme == "code":
+                p = _resolve_ref(scheme, target, base_dir=toc_path.parent)
+                if not p.exists():
+                    print(f"│   • {child}  -> MISSING : {p}")
+                    missing_total += 1
+                else:
+                    print(f"│   • {child}  -> OK")
+                continue
+
+            # no scheme – just print
+            print(f"│   • {child}  (unknown or freeform)")
+
         print("└")
 
-    if errs:
-        print(f"\n[FAIL] {errs} missing references detected.", file=sys.stderr)
-        return 2
-    print("\n[OK] TOCs look good.")
+    if missing_total:
+        print(f"\n[WARN] {missing_total} missing references detected.")
+        return 1
+
+    print("\n[OK] All TOCs resolved.")
     return 0
 
 if __name__ == "__main__":
