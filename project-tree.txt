@@ -9,22 +9,68 @@
 │   ├── settings.json
 │   └── types.d.ts
 ├── .dockerignore
+├── .DS_Store
+├── .gitattributes
 ├── .gitignore
-├── analysis
-│   ├── results
-│   │   └── .gitkeep
-│   └── simulations
-│       └── .gitkeep
+├── .vscode
+│   └── settings.json
+├── ai_guide
+│   ├── config
+│   │   └── policy.yaml
+│   ├── kb
+│   │   ├── data_catalog.yaml
+│   │   ├── glossary.md
+│   │   ├── metrics.md
+│   │   ├── steps
+│   │   │   ├── step_tre05.md
+│   │   │   └── step_tre06.md
+│   │   └── steps_overview.md
+│   ├── manifests
+│   │   └── steps_manifest.json
+│   ├── README.md
+│   ├── scripts
+│   │   └── index_kb.py
+│   └── server.py
 ├── apps
+│   ├── .gitignore
 │   ├── api
+│   │   ├── .env
+│   │   ├── .vscode
+│   │   │   └── settings.json
 │   │   ├── app
+│   │   │   ├── __init__.py
+│   │   │   ├── core
+│   │   │   │   └── config.py
+│   │   │   ├── core.py
 │   │   │   ├── data_access
-│   │   │   └── main.py
+│   │   │   │   ├── .gitkeep
+│   │   │   │   └── loaders.py
+│   │   │   ├── knowledge
+│   │   │   │   ├── build
+│   │   │   │   ├── cards
+│   │   │   │   ├── config.yml
+│   │   │   │   ├── README.md
+│   │   │   │   └── schema
+│   │   │   ├── lib
+│   │   │   │   └── openai_wrap.py
+│   │   │   ├── main.py
+│   │   │   ├── routers
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── ai_guide.py
+│   │   │   │   ├── health.py
+│   │   │   │   ├── lastprofile.py
+│   │   │   │   ├── rag.py
+│   │   │   │   └── survey.py
+│   │   │   └── schemas
+│   │   │       ├── common.py
+│   │   │       ├── lastprofile.py
+│   │   │       └── survey.py
 │   │   ├── Dockerfile
 │   │   └── requirements.txt
 │   └── web
 │       ├── .astro
 │       │   ├── collections
+│       │   │   └── docs.schema.json
 │       │   ├── content-assets.mjs
 │       │   ├── content-modules.mjs
 │       │   ├── content.d.ts
@@ -41,7 +87,9 @@
 │       │   └── favicon.svg
 │       ├── src
 │       │   ├── assets
+│       │   │   └── houston.webp
 │       │   ├── content
+│       │   │   └── docs
 │       │   └── content.config.ts
 │       └── tsconfig.json
 ├── data
@@ -49,17 +97,78 @@
 │   │   ├── curated
 │   │   │   ├── .gitkeep
 │   │   │   ├── 2024-08_release
+│   │   │   │   ├── 2024-01.csv
+│   │   │   │   ├── 2024-02.csv
+│   │   │   │   ├── 2024-03.csv
+│   │   │   │   ├── 2024-04.csv
+│   │   │   │   ├── 2024-05.csv
+│   │   │   │   ├── 2024-06.csv
+│   │   │   │   ├── 2024-07.csv
+│   │   │   │   ├── 2024-08.csv
+│   │   │   │   ├── 2024-09.csv
+│   │   │   │   ├── 2024-10.csv
+│   │   │   │   ├── 2024-11.csv
+│   │   │   │   ├── 2024-12.csv
+│   │   │   │   └── manifest.yaml
 │   │   │   └── current -> 2024-08_release
 │   │   ├── processed
 │   │   │   └── 2024
+│   │   │       ├── .gitkeep
+│   │   │       ├── 2024-01.csv
+│   │   │       ├── 2024-02.csv
+│   │   │       ├── 2024-03.csv
+│   │   │       ├── 2024-04.csv
+│   │   │       ├── 2024-05.csv
+│   │   │       ├── 2024-06.csv
+│   │   │       ├── 2024-07.csv
+│   │   │       ├── 2024-08.csv
+│   │   │       ├── 2024-09.csv
+│   │   │       ├── 2024-10.csv
+│   │   │       ├── 2024-11.csv
+│   │   │       └── 2024-12.csv
 │   │   └── raw
 │   │       ├── .gitkeep
 │   │       └── Swiss_load_curves_2015_2035_2050.csv
+│   ├── market
+│   │   ├── .DS_Store
+│   │   ├── .gitkeep
+│   │   ├── processed
+│   │   │   ├── dr_windows
+│   │   │   │   ├── tre_dr_days_geschirrspueler_2024_top200_thr70_fx0.97.csv
+│   │   │   │   ├── tre_jasm_geschirrspueler_2024_top24_fx0.97.csv
+│   │   │   │   ├── tre_ranked_days_geschirrspueler_2024_top200_thr70_fx0.97.csv
+│   │   │   │   ├── tre_top_periods_2024_fx0.97.csv
+│   │   │   │   ├── tre_top_periods_2024.csv
+│   │   │   │   └── tre_windows_geschirrspueler_2024_top200_thr70_fx0.97.csv
+│   │   │   ├── market
+│   │   │   │   └── regelenergie
+│   │   │   ├── regelenergie
+│   │   │   │   ├── 2024-01.csv
+│   │   │   │   ├── 2024-02.csv
+│   │   │   │   ├── 2024-03.csv
+│   │   │   │   ├── 2024-04.csv
+│   │   │   │   ├── 2024-05.csv
+│   │   │   │   ├── 2024-06.csv
+│   │   │   │   ├── 2024-07.csv
+│   │   │   │   ├── 2024-08.csv
+│   │   │   │   ├── 2024-09.csv
+│   │   │   │   ├── 2024-10.csv
+│   │   │   │   ├── 2024-11.csv
+│   │   │   │   └── 2024-12.csv
+│   │   │   └── simulation
+│   │   │       ├── tre06_shiftable_energy_detailed_geschirrspueler_2024_top200_thr70_fx0.97.csv
+│   │   │       └── tre06_shiftable_energy_summary_geschirrspueler_2024_top200_thr70_fx0.97.csv
+│   │   └── raw
+│   │       └── regelenergie
+│   │           ├── .DS_Store
+│   │           ├── .gitkeep
+│   │           ├── mfrR
+│   │           └── spot_prices
 │   ├── survey
 │   │   ├── curated
 │   │   │   └── .gitkeep
 │   │   ├── processed
-│   │   │   ├── .gitkeep
+│   │   │   ├── nullglob
 │   │   │   ├── question_1_age.csv
 │   │   │   ├── question_10_incentive_wide.csv
 │   │   │   ├── question_11_notify_optin.csv
@@ -85,59 +194,147 @@
 │       │   └── .gitkeep
 │       └── raw
 │           └── .gitkeep
+├── flex_surface_Geschirrspueler.html
 ├── infra
 │   └── docker-compose.prod.yml
-├── knowledge
-│   └── .gitkeep
-├── Makefile
-├── processing
-│   ├── docs
-│   │   └── .gitkeep
-│   ├── lastprofile
-│   │   ├── docs
-│   │   │   └── .gitkeep
-│   │   └── jobs
-│   │       ├── .gitkeep
-│   │       └── precompute_lastprofile_2024.py
-│   ├── lib
-│   │   ├── dataloaders
-│   │   │   └── .gitkeep
-│   │   ├── transforms
-│   │   │   └── .gitkeep
-│   │   └── validators
-│   │       └── .gitkeep
-│   ├── requirements.txt
-│   ├── schemas
-│   │   └── .gitkeep
-│   ├── survey
-│   │   ├── docs
-│   │   │   └── .gitkeep
-│   │   └── jobs
-│   │       ├── .gitkeep
-│   │       ├── preprocess_q1_age.py
-│   │       ├── preprocess_q10_incentive_wide.py
-│   │       ├── preprocess_q11_notify_optin.py
-│   │       ├── preprocess_q12_smartplug.py
-│   │       ├── preprocess_q13_income.py
-│   │       ├── preprocess_q14_education.py
-│   │       ├── preprocess_q15_party.py
-│   │       ├── preprocess_q2_gender.py
-│   │       ├── preprocess_q3_household_size.py
-│   │       ├── preprocess_q4_accommodation.py
-│   │       ├── preprocess_q5_electricity.py
-│   │       ├── preprocess_q6_challenges.py
-│   │       ├── preprocess_q7_consequence.py
-│   │       ├── preprocess_q8_importance_wide.py
-│   │       └── preprocess_q9_nonuse_wide.py
-│   └── thesis
-│       ├── docs
-│       │   └── .gitkeep
-│       └── jobs
-│           └── .gitkeep
 ├── project-tree.txt
-├── python
+├── pyrightconfig.json
 ├── README.md
-└── scripts
-    └── release_lastprofile.sh
+├── requirements.txt
+├── scripts
+│   ├── ai_guide_ingest.sh
+│   ├── rebuild_all.sh
+│   ├── release_lastprofile.sh
+│   ├── run_all_steps.sh
+│   ├── setup.sh
+│   ├── step1.sh
+│   ├── step2.sh
+│   ├── step3.sh
+│   ├── step4.sh
+│   ├── step5.sh
+│   └── step6.sh
+├── sollte
+└── steps
+    ├── __init__.py
+    ├── .DS_Store
+    ├── step01_raw_data
+    │   ├── __init__.py
+    │   ├── check.py
+    │   ├── lastprofile -> ../../data/lastprofile/raw
+    │   ├── market
+    │   │   ├── .DS_Store
+    │   │   ├── .gitkeep
+    │   │   ├── processed
+    │   │   │   ├── dr_windows
+    │   │   │   ├── market
+    │   │   │   ├── regelenergie
+    │   │   │   └── simulation
+    │   │   └── raw
+    │   │       └── regelenergie
+    │   ├── README.md
+    │   └── survey -> ../../data/survey/raw
+    ├── step02_preprocessing
+    │   ├── __init__.py
+    │   ├── .DS_Store
+    │   ├── check.py
+    │   ├── etl
+    │   │   └── common.py
+    │   ├── lastprofile
+    │   │   ├── __init__.py
+    │   │   └── precompute_lastprofile_2024.py
+    │   ├── market
+    │   │   └── regelenergie
+    │   │       └── preprocess_tertiary_regulation.py
+    │   └── survey
+    │       ├── __init__.py
+    │       ├── preprocess_q1_age.py
+    │       ├── preprocess_q10_incentive_wide.py
+    │       ├── preprocess_q11_notify_optin.py
+    │       ├── preprocess_q12_smartplug.py
+    │       ├── preprocess_q13_income.py
+    │       ├── preprocess_q14_education.py
+    │       ├── preprocess_q15_party.py
+    │       ├── preprocess_q2_gender.py
+    │       ├── preprocess_q3_household_size.py
+    │       ├── preprocess_q4_accommodation.py
+    │       ├── preprocess_q5_electricity.py
+    │       ├── preprocess_q6_challenges.py
+    │       ├── preprocess_q7_consequence.py
+    │       ├── preprocess_q8_importance_wide.py
+    │       └── preprocess_q9_nonuse_wide.py
+    ├── step03_processed_data
+    │   ├── __init__.py
+    │   ├── check.py
+    │   ├── lastprofile -> ../../data/lastprofile/processed
+    │   ├── market
+    │   │   └── regelenergie
+    │   │       ├── 2024-01.csv
+    │   │       ├── 2024-02.csv
+    │   │       ├── 2024-03.csv
+    │   │       ├── 2024-04.csv
+    │   │       ├── 2024-05.csv
+    │   │       ├── 2024-06.csv
+    │   │       ├── 2024-07.csv
+    │   │       ├── 2024-08.csv
+    │   │       ├── 2024-09.csv
+    │   │       ├── 2024-10.csv
+    │   │       ├── 2024-11.csv
+    │   │       └── 2024-12.csv
+    │   └── survey -> ../../data/survey/processed
+    ├── step04_dataloaders
+    │   ├── __init__.py
+    │   ├── check.py
+    │   └── dataloaders
+    │       ├── __init__.py
+    │       ├── io.py
+    │       ├── lastprofile
+    │       │   ├── __init__.py
+    │       │   └── io.py
+    │       ├── market
+    │       │   ├── dr_windows_loader.py
+    │       │   └── tertiary_regulation_loader.py
+    │       └── survey
+    │           ├── __init__.py
+    │           ├── attitudes.py
+    │           ├── demand_response.py
+    │           ├── demographics.py
+    │           ├── incentives.py
+    │           ├── nonuse.py
+    │           └── socioeconomics.py
+    ├── step05_analysis
+    │   ├── __init__.py
+    │   ├── check.py
+    │   └── tools
+    │       └── insert_bootstrap_cell.py
+    └── step06_sozio_technisches_simulationsmodell
+        ├── __init__.py
+        ├── .DS_Store
+        ├── check.py
+        ├── dr_windows
+        │   ├── __init__.py
+        │   ├── tre01_peak_price_finder.py
+        │   ├── tre02_jasm_dishwasher_peak_usage_finder.py
+        │   ├── tre03_dr_day_identifier.py
+        │   └── tre04_dr_day_ranker.py
+        ├── flexibility_potential
+        │   ├── __init__.py
+        │   ├── .DS_Store
+        │   ├── a_survey_data_preparer.py
+        │   ├── b_participation_calculator.py
+        │   ├── c_flexibility_visualizer.py
+        │   ├── d_surface_batch.py
+        │   └── figures
+        │       ├── .DS_Store
+        │       ├── flex_surface_Backofen_und_Herd.html
+        │       ├── flex_surface_Bürogeräte.html
+        │       ├── flex_surface_Fernseher_und_Entertainment-Systeme.html
+        │       ├── flex_surface_Geschirrspüler.html
+        │       ├── flex_surface_Staubsauger.html
+        │       └── flex_surface_Waschmaschine.html
+        ├── README.md
+        └── simulation
+            ├── __init__.py
+            ├── tre05_flex_potential_simulation.py
+            └── tre06_grid_shiftable_energy.py
 
-54 directories, 87 files
+96 directories, 242 files
