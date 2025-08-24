@@ -1,14 +1,15 @@
 ---
 title: AI-Guide Studio
-description: Dev-Ansicht mit Streaming, Markdown, Retrieval-Meta & Timings.
 sidebar:
   label: AI-Guide Studio
-  order: 50
+tableOfContents: false
 ---
 
 import AIGuide from "../../components/AIGuide.tsx";
+import ChatWidget from "../../components/ChatWidget.tsx";
 
 > Diese Seite ist für Entwicklung & Feintuning gedacht.  
 > Öffentliche Nutzer*innen verwenden den Chat unten rechts.
 
 <AIGuide client:load apiBase="https://api.powere.ch" />
+<ChatWidget client:load apiBase="https://api.powere.ch" />
