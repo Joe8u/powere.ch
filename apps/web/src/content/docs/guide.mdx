@@ -1,13 +1,23 @@
 ---
-title: AI-Guide (Beta)
-description: Frag den AI-Guide über Daten, Loader & Methodik. Beta-Version.
+title: AI-Guide
+description: So nutzt du den Chat unten rechts.
 ---
 
-import AIGuide from "../../components/AIGuide.tsx";
 import ChatWidget from "../../components/ChatWidget.tsx";
 
-Willkommen beim **AI-Guide (Beta)**. Stelle Fragen zur Datenbasis, zu Dataloaders, Pfaden und Funktionen.  
-Hinweis: Der Guide antwortet **nur aus dem eingebetteten Kontext** (RAG).
+# AI-Guide
 
-<AIGuide client:load apiBase="https://api.powere.ch" />
+Der Chat unten rechts hilft dir bei Fragen rund um powere.ch (Daten, Loader, Methodik).  
+**Wichtig:** Antworten basieren ausschließlich auf internem Kontext.  
+Wenn die Info nicht im Kontext ist, sagt der Chat das ehrlich.
+
+## Nutzung
+- **Frage tippen** → Enter sendet, **Shift+Enter** für Zeilenumbruch  
+- Antworten erscheinen **streaming** (Zeichen-für-Zeichen)  
+- Quellen siehst du unter der Antwort
+
+> Für Entwickler*innen gibt es eine ausführliche Analyse-Ansicht:  
+> **“AI-Guide Studio”** (Streaming, Token-Timings, Retrieval-Ranking, Debug).
+
+{/* Widget explizit auch auf dieser Seite anzeigen */}
 <ChatWidget client:load apiBase="https://api.powere.ch" suppressOnGuide={false} />
