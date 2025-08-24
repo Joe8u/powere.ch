@@ -121,24 +121,22 @@ def search(q: str = Query(..., min_length=2), top_k: int = 5) -> dict[str, Any]:
 # ----------------- Chat (RAG + Conversation) -----------------
 @router.post("/v1/chat")
 def chat(req: ChatRequest, debug: bool = Query(False)):
-    if not chat_client:
+    if chat_client is None:
         raise HTTPException(status_code=500, detail="chat_backend_not_configured: set OPENAI_API_KEY")
+    client = cast(Any, chat_client)
 
-    # Konversation vorbereiten
     _prune_old()
     with _lock:
         if req.reset and req.conversation_id:
             _CONV.pop(req.conversation_id, None)
             _LAST_SEEN.pop(req.conversation_id, None)
-
         conv_id = req.conversation_id or str(uuid.uuid4())
         if conv_id not in _CONV:
-            _CONV[conv_id] = deque(maxlen=CHAT_MAX_TURNS_STORED * 2)  # 2 Nachrichten pro Runde
+            _CONV[conv_id] = deque(maxlen=CHAT_MAX_TURNS_STORED * 2)
         history = _CONV[conv_id]
         _LAST_SEEN[conv_id] = _now()
 
     t0 = time.perf_counter()
-    # 1) Embedding der aktuellen Frage
     try:
         query_vec = embed_batch([req.question])[0]
     except Exception as e:
@@ -146,7 +144,6 @@ def chat(req: ChatRequest, debug: bool = Query(False)):
         raise HTTPException(status_code=502, detail=f"embedding_failed: {e}")
     t1 = time.perf_counter()
 
-    # 2) Retrieval
     try:
         hits = qdrant.search(
             collection_name=QDRANT_COLLECTION,
@@ -170,41 +167,32 @@ def chat(req: ChatRequest, debug: bool = Query(False)):
         contexts.append(f"[{i}] {title}\n{content}")
         citations.append({"id": str(h.id), "title": title, "url": url, "score": h.score})
         retrieval_meta.append({
-            "rank": i,
-            "id": str(h.id),
-            "title": title,
-            "url": url,
-            "score": h.score,
-            "snippet": content[:160],
+            "rank": i, "id": str(h.id), "title": title, "url": url,
+            "score": h.score, "snippet": content[:160],
         })
 
-    # 3) Prompt-Aufbau inkl. kurzer History
     sys_msg = (
         "Du bist der AI-Guide von powere.ch. Beantworte Fragen NUR mit Hilfe des Kontexts. "
         "Wenn der Kontext etwas nicht enthält, sage ehrlich, dass du es nicht weißt. "
         "Antworte knapp und füge Quellenhinweise wie [1], [2] ein, wenn relevant."
     )
 
-    # Letzte N Runden (user/assistant) in die Messages einfügen
     history_to_send: List[ChatCompletionMessageParam] = []
     if HISTORY_SEND_TURNS > 0 and len(history) > 0:
-        for msg in list(history)[-2 * HISTORY_SEND_TURNS:]:
-            history_to_send.append(
-                cast(ChatCompletionMessageParam, {"role": msg.role, "content": msg.content})
-            )
+        for msg in list(history)[-2*HISTORY_SEND_TURNS:]:
+            history_to_send.append(cast(ChatCompletionMessageParam, {"role": msg.role, "content": msg.content}))
 
     user_msg_content = (
         f"Frage: {req.question}\n\nKontext:\n" + "\n\n".join(contexts)
         if contexts else f"Frage: {req.question}\n\nKontext: (leer)"
     )
 
-    # 4) LLM-Aufruf
     try:
         sys_msg_param  = cast(ChatCompletionMessageParam, {"role": "system", "content": sys_msg})
         user_msg_param = cast(ChatCompletionMessageParam, {"role": "user",   "content": user_msg_content})
-
         messages: List[ChatCompletionMessageParam] = [sys_msg_param, *history_to_send, user_msg_param]
-        completion = chat_client.chat.completions.create(
+
+        completion = client.chat.completions.create(
             model=CHAT_MODEL,
             messages=messages,
             temperature=0.2,
@@ -215,13 +203,11 @@ def chat(req: ChatRequest, debug: bool = Query(False)):
         raise HTTPException(status_code=502, detail=f"chat_failed: {e}")
     t3 = time.perf_counter()
 
-    # 5) Konversation speichern (User + Assistant)
     with _lock:
         history.append(ChatMessage(role="user", content=req.question))
         history.append(ChatMessage(role="assistant", content=answer))
         _LAST_SEEN[conv_id] = _now()
 
-    # 6) Token-Nutzung robust ermitteln
     token_usage = None
     try:
         u = getattr(completion, "usage", None)
@@ -262,28 +248,18 @@ def chat(req: ChatRequest, debug: bool = Query(False)):
                 "user": user_msg_content[:240],
             },
         }
-
     return resp
 
-# --- neu ---
 @router.post("/v1/chat/stream")
 def chat_stream(req: ChatRequest, debug: bool = Query(False)):
-    """
-    Server-Sent Events (SSE): streamt die Antwort tokenweise.
-    Events:
-      - event: meta   -> Vorab-Metadaten (retrieval, citations, conv_id)
-      - event: token  -> Delta-Text (kleine Stücke)
-      - event: done   -> Abschluss (Timings, usage etc.)
-    """
-    if not chat_client:
+    if chat_client is None:
         raise HTTPException(status_code=500, detail="chat_backend_not_configured: set OPENAI_API_KEY")
+    client = cast(Any, chat_client)
 
     def sse(event: str, data: dict) -> bytes:
-        # UTF-8, keine ASCII-Escapes; "data:"-Zeilen pro SSE Standard
         payload = json.dumps(data, ensure_ascii=False)
         return f"event: {event}\ndata: {payload}\n\n".encode("utf-8")
 
-    # Konversation vorbereiten (wie in /v1/chat)
     _prune_old()
     with _lock:
         conv_id = req.conversation_id or str(uuid.uuid4())
@@ -293,7 +269,6 @@ def chat_stream(req: ChatRequest, debug: bool = Query(False)):
         _LAST_SEEN[conv_id] = _now()
 
     t0 = time.perf_counter()
-    # 1) Embedding
     try:
         query_vec = embed_batch([req.question])[0]
     except Exception as e:
@@ -301,7 +276,6 @@ def chat_stream(req: ChatRequest, debug: bool = Query(False)):
         raise HTTPException(status_code=502, detail=f"embedding_failed: {e}")
     t1 = time.perf_counter()
 
-    # 2) Retrieval
     try:
         hits = qdrant.search(
             collection_name=QDRANT_COLLECTION,
@@ -314,7 +288,6 @@ def chat_stream(req: ChatRequest, debug: bool = Query(False)):
         raise HTTPException(status_code=500, detail=f"qdrant_search_failed: {e}")
     t2 = time.perf_counter()
 
-    # Kontexte/Citations/Meta bauen
     contexts: list[str] = []
     citations: list[dict[str, Any]] = []
     retrieval_meta: list[dict[str, Any]] = []
@@ -338,9 +311,7 @@ def chat_stream(req: ChatRequest, debug: bool = Query(False)):
     history_to_send: List[ChatCompletionMessageParam] = []
     if HISTORY_SEND_TURNS > 0 and len(history) > 0:
         for msg in list(history)[-2*HISTORY_SEND_TURNS:]:
-            history_to_send.append(
-                cast(ChatCompletionMessageParam, {"role": msg.role, "content": msg.content})
-            )
+            history_to_send.append(cast(ChatCompletionMessageParam, {"role": msg.role, "content": msg.content}))
 
     user_msg_content = (
         f"Frage: {req.question}\n\nKontext:\n" + "\n\n".join(contexts)
@@ -348,7 +319,6 @@ def chat_stream(req: ChatRequest, debug: bool = Query(False)):
     )
 
     def gen():
-        # 2a) Vorab-Event 'meta' direkt nach Retrieval senden
         pre_meta = {
             "top_k": req.top_k,
             "timing_ms": {
@@ -375,41 +345,31 @@ def chat_stream(req: ChatRequest, debug: bool = Query(False)):
             "meta": pre_meta,
         })
 
-        # 3) Stream von OpenAI weiterreichen
-    t_llm_start = time.perf_counter()
-    answer_buf: list[str] = []
-    try:
-        # Pylance-safe: lokal referenzieren und prüfen
-        client = chat_client
-        if client is None:
-            yield sse("token", {"delta": "\n⚠ chat_backend_not_configured"})
-            return
+        t_llm_start = time.perf_counter()
+        answer_buf: list[str] = []
+        try:
+            sys_msg_param  = cast(ChatCompletionMessageParam, {"role": "system", "content": sys_msg})
+            user_msg_param = cast(ChatCompletionMessageParam, {"role": "user",   "content": user_msg_content})
+            messages: List[ChatCompletionMessageParam] = [sys_msg_param, *history_to_send, user_msg_param]
 
-        sys_msg_param  = cast(ChatCompletionMessageParam, {"role": "system", "content": sys_msg})
-        user_msg_param = cast(ChatCompletionMessageParam, {"role": "user",   "content": user_msg_content})
-        messages: List[ChatCompletionMessageParam] = [sys_msg_param, *history_to_send, user_msg_param]
-
-        stream = client.chat.completions.create(
-            model=CHAT_MODEL, messages=messages, temperature=0.2, stream=True
-        )
-        for chunk in stream:
-            delta = None
-            try:
-                # OpenAI-SDK: delta.content kann None sein
-                delta = chunk.choices[0].delta.content
-            except Exception:
-                pass
-            if delta:
-                answer_buf.append(delta)
-                yield sse("token", {"delta": delta})
-    except Exception as e:
-        log.exception("chat_stream_failed")
-        yield sse("token", {"delta": f"\n⚠ chat_failed: {e}"})
+            stream = client.chat.completions.create(
+                model=CHAT_MODEL, messages=messages, temperature=0.2, stream=True
+            )
+            for chunk in stream:
+                try:
+                    delta = chunk.choices[0].delta.content
+                except Exception:
+                    delta = None
+                if delta:
+                    answer_buf.append(delta)
+                    yield sse("token", {"delta": delta})
+        except Exception as e:
+            log.exception("chat_stream_failed")
+            yield sse("token", {"delta": f"\n⚠ chat_failed: {e}"})
 
         t_llm_end = time.perf_counter()
         answer = "".join(answer_buf).strip()
 
-        # 4) Konversation speichern (User + Assistant)
         try:
             with _lock:
                 history.append(ChatMessage(role="user", content=req.question))
@@ -418,7 +378,6 @@ def chat_stream(req: ChatRequest, debug: bool = Query(False)):
         except Exception:
             pass
 
-        # 5) Abschluss-Event
         done_meta = {
             "top_k": req.top_k,
             "timing_ms": {
@@ -433,15 +392,17 @@ def chat_stream(req: ChatRequest, debug: bool = Query(False)):
                 "embed_backend": EMBED_BACKEND,
                 "chat_model": CHAT_MODEL,
             },
-            "token_usage": None,  # bei Stream meist nicht verfügbar
+            "token_usage": None,
             "messages_preview": None,
         }
         yield sse("done", {"meta": done_meta})
 
-    headers = {
-        "Cache-Control": "no-cache",
-        "X-Accel-Buffering": "no",  # wichtig hinter Nginx
-        "Content-Type": "text/event-stream; charset=utf-8",
-        "Connection": "keep-alive",
-    }
-    return StreamingResponse(gen(), headers=headers)
+    # WICHTIG: media_type setzen – sonst wird 'application/json' daraus
+    return StreamingResponse(
+        gen(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
