@@ -9,7 +9,7 @@ type Msg = { role: "user" | "assistant"; content: string; citations?: Citation[]
 const LS_KEY_CID = "aiGuide.convId.v1";
 const LS_KEY_SIZE = "aiGuide.panelSize.v1";
 
-/** Leichtgewichtiger SVG-Spinner (dreht sich per <animateTransform>) */
+/** Minimaler SVG-Spinner */
 function Spinner({ size = 16, color = "currentColor" }: { size?: number; color?: string }) {
   return (
     <svg
@@ -26,19 +26,19 @@ function Spinner({ size = 16, color = "currentColor" }: { size?: number; color?:
 }
 
 function useThemeVars() {
-  // Starlight CSS-Variablen (Dark/Light)
   const get = (v: string, fallback: string) =>
     typeof window !== "undefined"
       ? getComputedStyle(document.documentElement).getPropertyValue(v).trim() || fallback
       : fallback;
 
-  const bg = get("--sl-color-bg", "#fff");
-  const text = get("--sl-color-text", "#111");
-  const border = get("--sl-color-gray-5", "#e5e7eb");
-  const headerBg = get("--sl-color-gray-6", "#f7f7f8");
-  const btnBg = get("--sl-color-bg-nav", "#fff");
-  const btnBorder = get("--sl-color-gray-4", "#d1d5db");
-  return { bg, text, border, headerBg, btnBg, btnBorder };
+  return {
+    bg:       get("--sl-color-bg", "#fff"),
+    text:     get("--sl-color-text", "#111"),
+    border:   get("--sl-color-gray-5", "#e5e7eb"),
+    headerBg: get("--sl-color-gray-6", "#f7f7f8"),
+    btnBg:    get("--sl-color-bg-nav", "#fff"),
+    btnBorder:get("--sl-color-gray-4", "#d1d5db"),
+  };
 }
 
 function renderMarkdown(md: string): string {
@@ -52,46 +52,55 @@ function renderMarkdown(md: string): string {
   });
 }
 
-function useSSEStream(url: string, body: any, onEvent: (ev: string, data: any) => void) {
-  const start = async () => {
-    const ac = new AbortController();
+/** SSE-Client: liefert Controller + Promise zurück */
+function createSSEStream(
+  url: string,
+  body: any,
+  onEvent: (ev: string, data: any) => void
+) {
+  const controller = new AbortController();
+
+  const promise = (async () => {
     const r = await fetch(url, {
       method: "POST",
       headers: { "Accept": "text/event-stream", "Content-Type": "application/json" },
       body: JSON.stringify(body),
-      signal: ac.signal,
+      signal: controller.signal,
     });
     if (!r.ok || !r.body) throw new Error(`HTTP ${r.status} ${r.statusText}`);
 
     const reader = r.body.getReader();
     const decoder = new TextDecoder();
-    let buffer = "";
+    let buf = "";
 
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-      buffer += decoder.decode(value, { stream: true });
+      buf += decoder.decode(value, { stream: true });
 
+      // CRLF -> LF normalisieren, dann Blöcke trennen
+      buf = buf.replace(/\r\n/g, "\n");
       let idx;
-      while ((idx = buffer.indexOf("\n\n")) !== -1) {
-        const block = buffer.slice(0, idx);
-        buffer = buffer.slice(idx + 2);
+      while ((idx = buf.indexOf("\n\n")) !== -1) {
+        const block = buf.slice(0, idx);
+        buf = buf.slice(idx + 2);
 
         let ev = "message";
-        let data = "";
+        const dataLines: string[] = [];
         for (const line of block.split("\n")) {
-          if (line.startsWith("event:")) ev = line.slice(6).trim();
-          else if (line.startsWith("data:")) data += (data ? "\n" : "") + line.slice(5).trim();
+          if (line.startsWith("event:")) ev = line.slice(6).trim().toLowerCase();
+          else if (line.startsWith("data:")) dataLines.push(line.slice(5).trim());
         }
-        if (data) {
-          try { onEvent(ev, JSON.parse(data)); }
-          catch { onEvent(ev, data); }
+        if (dataLines.length) {
+          const dataStr = dataLines.join("\n");
+          try { onEvent(ev, JSON.parse(dataStr)); }
+          catch { onEvent(ev, { raw: dataStr }); }
         }
       }
     }
-    return ac;
-  };
-  return { start };
+  })();
+
+  return { controller, promise };
 }
 
 export default function ChatWidget(props: { apiBase?: string; suppressOnGuide?: boolean }) {
@@ -108,7 +117,7 @@ export default function ChatWidget(props: { apiBase?: string; suppressOnGuide?: 
   // API-Basis
   const apiBase = useMemo(() => {
     if (props.apiBase && props.apiBase.trim()) return props.apiBase;
-    // @ts-ignore build-time env
+    // @ts-ignore build env
     const envBase = (import.meta as any)?.env?.PUBLIC_API_BASE as string | undefined;
     if (envBase && envBase.trim()) return envBase;
     if (typeof window !== "undefined") return `${window.location.protocol}//${window.location.hostname}:9000`;
@@ -137,7 +146,7 @@ export default function ChatWidget(props: { apiBase?: string; suppressOnGuide?: 
     }
   }, [w, h]);
 
-  // Conv-ID wiederherstellen/persistieren
+  // Conv-ID persist
   useEffect(() => {
     if (typeof window !== "undefined") {
       const cid = window.localStorage.getItem(LS_KEY_CID);
@@ -215,21 +224,28 @@ export default function ChatWidget(props: { apiBase?: string; suppressOnGuide?: 
     if (!q.trim() || loading || apiOK === false) return;
     setLoading(true);
 
-    // optimistic user
-    setMessages((prev) => [...prev, { role: "user", content: q }]);
-
-    // assistant placeholder (leer → zeigt Spinner)
-    let assistantIndex = -1;
-    setMessages((prev) => {
-      assistantIndex = prev.length;
-      return [...prev, { role: "assistant", content: "" }];
-    });
+    // optimistic: user + leere assistant-Bubble
+    setMessages((prev) => [...prev, { role: "user", content: q }, { role: "assistant", content: "" }]);
+    const assistantIdx = messages.length + 1; // der eben angehängte Assistant
 
     const body: any = { question: q, top_k: 5 };
     if (conversationId) body.conversation_id = conversationId;
 
     const streamURL = `${apiBase}/v1/chat/stream`;
-    const { start } = useSSEStream(streamURL, body, (ev, data) => {
+
+    // Watchdogs
+    let gotFirstToken = false;
+    const tokenTimeout = window.setTimeout(() => {
+      if (!gotFirstToken) {
+        // Stream abbrechen und auf Non-Stream fallen
+        abortAndFallback();
+      }
+    }, 6000);
+    const hardTimeout = window.setTimeout(() => {
+      setLoading(false);
+    }, 30000);
+
+    const { controller, promise } = createSSEStream(streamURL, body, (ev, data) => {
       if (ev === "meta") {
         if (data?.conversation_id && data.conversation_id !== conversationId) {
           setConversationId(data.conversation_id);
@@ -237,7 +253,7 @@ export default function ChatWidget(props: { apiBase?: string; suppressOnGuide?: 
         if (Array.isArray(data?.citations) && data.citations.length > 0) {
           setMessages((prev) => {
             const next = prev.slice();
-            const idx = assistantIndex >= 0 ? assistantIndex : next.length - 1;
+            const idx = assistantIdx < next.length ? assistantIdx : next.length - 1;
             if (next[idx] && next[idx].role === "assistant") {
               next[idx] = { ...next[idx], citations: data.citations as Citation[] };
             }
@@ -247,9 +263,10 @@ export default function ChatWidget(props: { apiBase?: string; suppressOnGuide?: 
       } else if (ev === "token") {
         const delta = typeof data?.delta === "string" ? data.delta : "";
         if (!delta) return;
+        gotFirstToken = true;
         setMessages((prev) => {
           const next = prev.slice();
-          const idx = assistantIndex >= 0 ? assistantIndex : next.length - 1;
+          const idx = assistantIdx < next.length ? assistantIdx : next.length - 1;
           if (next[idx] && next[idx].role === "assistant") {
             next[idx] = { ...next[idx], content: (next[idx].content || "") + delta };
           }
@@ -260,10 +277,8 @@ export default function ChatWidget(props: { apiBase?: string; suppressOnGuide?: 
       }
     });
 
-    try {
-      await start();
-    } catch (e) {
-      // Fallback auf non-stream
+    async function abortAndFallback() {
+      try { controller.abort(); } catch {}
       try {
         const r = await fetch(`${apiBase}/v1/chat`, {
           method: "POST",
@@ -274,10 +289,9 @@ export default function ChatWidget(props: { apiBase?: string; suppressOnGuide?: 
         if (!r.ok) throw new Error(data?.detail || `${r.status} ${r.statusText}`);
         const answer = (data.answer || "").trim();
         const citations = (data.citations || []) as Citation[];
-
         setMessages((prev) => {
           const next = prev.slice();
-          const idx = assistantIndex >= 0 ? assistantIndex : next.length - 1;
+          const idx = assistantIdx < next.length ? assistantIdx : next.length - 1;
           if (next[idx] && next[idx].role === "assistant") {
             next[idx] = { role: "assistant", content: answer, citations };
           }
@@ -289,7 +303,7 @@ export default function ChatWidget(props: { apiBase?: string; suppressOnGuide?: 
       } catch (e2: any) {
         setMessages((prev) => {
           const next = prev.slice();
-          const idx = assistantIndex >= 0 ? assistantIndex : next.length - 1;
+          const idx = assistantIdx < next.length ? assistantIdx : next.length - 1;
           if (next[idx] && next[idx].role === "assistant") {
             next[idx] = { role: "assistant", content: `⚠ ${e2.message || String(e2)}` };
           }
@@ -298,7 +312,16 @@ export default function ChatWidget(props: { apiBase?: string; suppressOnGuide?: 
       } finally {
         setLoading(false);
       }
+    }
+
+    try {
+      await promise; // wartet bis Stream endet
+    } catch {
+      // Netz-/Streamfehler → Fallback
+      await abortAndFallback();
     } finally {
+      window.clearTimeout(tokenTimeout);
+      window.clearTimeout(hardTimeout);
       setQ("");
       setTimeout(() => taRef.current?.focus(), 0);
     }
@@ -310,7 +333,7 @@ export default function ChatWidget(props: { apiBase?: string; suppressOnGuide?: 
     setQ("");
   }
 
-  // Erkennen: aktuell „Warten auf erste Tokens“?
+  // Spinner-Zustand für die letzte (leere) Assistant-Bubble
   const waitingOnAssistant =
     loading &&
     messages.length > 0 &&
@@ -319,7 +342,7 @@ export default function ChatWidget(props: { apiBase?: string; suppressOnGuide?: 
 
   return (
     <>
-      {/* Floating bubble – unten rechts */}
+      {/* Bubble unten rechts */}
       <button
         aria-label="AI-Guide öffnen"
         onClick={() => setOpen((v) => !v)}
@@ -440,7 +463,7 @@ export default function ChatWidget(props: { apiBase?: string; suppressOnGuide?: 
                   <div style={{ fontSize:12, opacity:.65, marginBottom:4 }}>{m.role === "user" ? "Du" : "AI-Guide"}</div>
                   {m.role === "assistant"
                     ? (m.content
-                        ? <MD text={m.content} />
+                        ? <div className="ai-md" dangerouslySetInnerHTML={{ __html: renderMarkdown(m.content) }} style={{ lineHeight: 1.5 }} />
                         : (
                           <div style={{ display:"flex", alignItems:"center", gap:8 }}>
                             <Spinner size={16} color={theme.text} />
@@ -465,8 +488,7 @@ export default function ChatWidget(props: { apiBase?: string; suppressOnGuide?: 
                 )}
               </div>
             ))}
-            {/* falls aus irgendeinem Grund noch keine Placeholder-Bubble existiert */}
-            {waitingOnAssistant && messages[messages.length - 1]?.role !== "assistant" && (
+            {waitingOnAssistant && (
               <div style={{ justifySelf: "start", maxWidth:"100%" }}>
                 <div style={{
                   border: `1px solid ${theme.border}`,
