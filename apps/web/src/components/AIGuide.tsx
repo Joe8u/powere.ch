@@ -1,11 +1,12 @@
 // apps/web/src/components/AIGuide.tsx
+// apps/web/src/components/AIGuide.tsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { marked } from "marked";
 import DOMPurify from "dompurify";
 
-// ---------- Typen ----------
+/* ----------------------------- Types ----------------------------- */
+
 type Citation = { id: string; title?: string; url?: string | null; score?: number };
-type Msg = { role: "user" | "assistant"; content: string; citations?: Citation[] };
 
 type Meta = {
   top_k: number;
@@ -16,12 +17,12 @@ type Meta = {
   messages_preview?: { history_sent?: string[]; user?: string } | null;
 };
 
-// ---------- Helpers ----------
-const LS_KEY_CID = "aiGuide.convId.v1";
-const LS_KEY_TOPK = "aiGuide.topk.v1";
-const LS_KEY_DEBUG = "aiGuide.debug.v1";
+type Msg = { role: "user" | "assistant"; content: string; citations?: Citation[] };
 
-// Theme aus Starlight-Variablen lesen (Dark/Light sicher)
+type EventRow = { ts: number; type: "meta" | "token" | "done" | "error" | "info"; data: any };
+
+/* --------------------------- Theme helpers --------------------------- */
+
 function useThemeVars() {
   const get = (v: string, fallback: string) =>
     typeof window !== "undefined"
@@ -29,55 +30,74 @@ function useThemeVars() {
       : fallback;
 
   return {
-    bg:       get("--sl-color-bg", "#fff"),
-    text:     get("--sl-color-text", "#111"),
-    border:   get("--sl-color-gray-5", "#e5e7eb"),
+    bg: get("--sl-color-bg", "#fff"),
+    text: get("--sl-color-text", "#111"),
+    border: get("--sl-color-gray-5", "#e5e7eb"),
     headerBg: get("--sl-color-gray-6", "#f7f7f8"),
-    muted:    get("--sl-color-gray-3", "#d1d5db"),
-    brand:    get("--sl-color-accent", "#111"),
+    subtext: get("--sl-color-gray-3", "#6b7280"),
+    chipBg: get("--sl-color-gray-6", "#f3f4f6"),
+    chipFg: get("--sl-color-text", "#111"),
+    primary: get("--sl-color-accent", "#111"),
   };
 }
 
-function Spinner({ size = 16, color = "currentColor" }: { size?: number; color?: string }) {
-  return (
-    <svg
-      width={size} height={size} viewBox="0 0 24 24"
-      fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-      aria-label="Lädt…"
-    >
-      <circle cx="12" cy="12" r="9" opacity="0.25" />
-      <path d="M21 12a9 9 0 0 0-9-9">
-        <animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="0.9s" repeatCount="indefinite" />
-      </path>
-    </svg>
-  );
-}
+/* --------------------------- Markdown utils -------------------------- */
 
 function renderMarkdown(md: string): string {
   const html = marked.parse(md, { breaks: true }) as string;
   return DOMPurify.sanitize(html, {
     ALLOWED_TAGS: [
-      "p","br","strong","em","code","pre","blockquote","ul","ol","li","a","h1","h2","h3","h4","h5","h6","table","thead","tbody","tr","th","td"
+      "p",
+      "br",
+      "strong",
+      "em",
+      "code",
+      "pre",
+      "blockquote",
+      "ul",
+      "ol",
+      "li",
+      "a",
+      "h1",
+      "h2",
+      "h3",
+      "h4",
+      "h5",
+      "h6",
+      "table",
+      "thead",
+      "tbody",
+      "tr",
+      "th",
+      "td"
     ],
-    ALLOWED_ATTR: ["href","target","rel","class"],
+    ALLOWED_ATTR: ["href", "target", "rel", "class"],
   });
 }
 
-// SSE-Client (einfacher Parser)
+/* --------------------------- SSE helper --------------------------- */
+
 function createSSEStream(
   url: string,
   body: any,
   onEvent: (ev: string, data: any) => void,
-  abortSignal?: AbortSignal
+  signal?: AbortSignal
 ) {
   const controller = new AbortController();
+  const combinedController = new AbortController();
+
+  // Wenn ein externes Signal kommt, auch abbrechen
+  if (signal) {
+    signal.addEventListener("abort", () => combinedController.abort(), { once: true });
+  }
+  controller.signal.addEventListener("abort", () => combinedController.abort(), { once: true });
 
   const promise = (async () => {
     const r = await fetch(url, {
       method: "POST",
-      headers: { "Accept": "text/event-stream", "Content-Type": "application/json" },
+      headers: { Accept: "text/event-stream", "Content-Type": "application/json" },
       body: JSON.stringify(body),
-      signal: abortSignal ?? controller.signal,
+      signal: combinedController.signal,
     });
     if (!r.ok || !r.body) throw new Error(`HTTP ${r.status} ${r.statusText}`);
 
@@ -90,8 +110,9 @@ function createSSEStream(
       if (done) break;
       buf += decoder.decode(value, { stream: true });
 
+      // Normalisieren
       buf = buf.replace(/\r\n/g, "\n");
-      let idx;
+      let idx: number;
       while ((idx = buf.indexOf("\n\n")) !== -1) {
         const block = buf.slice(0, idx);
         buf = buf.slice(idx + 2);
@@ -104,8 +125,11 @@ function createSSEStream(
         }
         if (dataLines.length) {
           const dataStr = dataLines.join("\n");
-          try { onEvent(ev, JSON.parse(dataStr)); }
-          catch { onEvent(ev, { raw: dataStr }); }
+          try {
+            onEvent(ev, JSON.parse(dataStr));
+          } catch {
+            onEvent(ev, { raw: dataStr });
+          }
         }
       }
     }
@@ -114,90 +138,88 @@ function createSSEStream(
   return { controller, promise };
 }
 
-// ---------- Component ----------
-export default function AIGuide(props: { apiBase?: string }) {
-  const theme = useThemeVars();
+/* ---------------------------- UI helpers ---------------------------- */
 
-  // API Base
+function Chip({ children }: { children: React.ReactNode }) {
+  const t = useThemeVars();
+  return (
+    <span
+      style={{
+        fontSize: 12,
+        border: `1px solid ${t.border}`,
+        borderRadius: 999,
+        padding: "4px 10px",
+        background: t.chipBg,
+        color: t.chipFg,
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 6,
+      }}
+    >
+      {children}
+    </span>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  const t = useThemeVars();
+  return (
+    <div style={{ border: `1px solid ${t.border}`, borderRadius: 10, padding: "10px 12px" }}>
+      <div style={{ fontSize: 12, color: t.subtext, marginBottom: 4 }}>{label}</div>
+      <div style={{ fontWeight: 600 }}>{value}</div>
+    </div>
+  );
+}
+
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  const t = useThemeVars();
+  return <div style={{ fontWeight: 600, color: t.subtext, letterSpacing: 0.2, marginBottom: 6 }}>{children}</div>;
+}
+
+/* ============================= Component ============================= */
+
+export default function AIGuide(props: { apiBase?: string }) {
+  const t = useThemeVars();
+
+  /* ---- API base ---- */
   const apiBase = useMemo(() => {
     if (props.apiBase && props.apiBase.trim()) return props.apiBase;
-    // @ts-ignore – beim Build ersetzt
+    // @ts-ignore: build env replacement
     const envBase = (import.meta as any)?.env?.PUBLIC_API_BASE as string | undefined;
     if (envBase && envBase.trim()) return envBase;
-    if (typeof window !== "undefined") return `${window.location.protocol}//${window.location.hostname}:9000`;
+    if (typeof window !== "undefined") {
+      return `${window.location.protocol}//${window.location.hostname}:9000`;
+    }
     return "http://127.0.0.1:9000";
   }, [props.apiBase]);
 
-  // Reachability
+  /* ---- State ---- */
   const [apiOK, setApiOK] = useState<boolean | null>(null);
-  useEffect(() => {
-    let alive = true;
-    (async () => {
-      try {
-        const r = await fetch(`${apiBase}/v1/ping`);
-        if (!alive) return;
-        setApiOK(r.ok);
-      } catch {
-        if (!alive) return;
-        setApiOK(false);
-      }
-    })();
-    return () => { alive = false; };
-  }, [apiBase]);
-
-  // State
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [q, setQ] = useState("");
-  const [k, setK] = useState<number>(() => {
-    if (typeof window !== "undefined") {
-      const v = window.localStorage.getItem(LS_KEY_TOPK);
-      if (v) return Math.max(1, Math.min(10, Number(v) || 5));
-    }
-    return 5;
-  });
-  const [debugFlag, setDebugFlag] = useState<boolean>(() => {
-    if (typeof window !== "undefined") return window.localStorage.getItem(LS_KEY_DEBUG) === "1";
-    return true;
-  });
+  const [k, setK] = useState(5);
+  const [debug, setDebug] = useState(true);
   const [loading, setLoading] = useState(false);
 
-  // Analyse-Zustände
+  // Debug artifacts
   const [lastMeta, setLastMeta] = useState<Meta | null>(null);
   const [lastCitations, setLastCitations] = useState<Citation[]>([]);
-  const [eventLog, setEventLog] = useState<string[]>([]);
+  const [events, setEvents] = useState<EventRow[]>([]);
+  const [activeTab, setActiveTab] = useState<"debug" | "retrieval" | "events" | "analysis" | "all">("debug");
 
-  // persist
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      if (conversationId) window.localStorage.setItem(LS_KEY_CID, conversationId);
-      else window.localStorage.removeItem(LS_KEY_CID);
-    }
-  }, [conversationId]);
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const cid = window.localStorage.getItem(LS_KEY_CID);
-      if (cid) setConversationId(cid);
-    }
-  }, []);
-  useEffect(() => {
-    if (typeof window !== "undefined") window.localStorage.setItem(LS_KEY_TOPK, String(k));
-  }, [k]);
-  useEffect(() => {
-    if (typeof window !== "undefined") window.localStorage.setItem(LS_KEY_DEBUG, debugFlag ? "1" : "0");
-  }, [debugFlag]);
-
-  // Scroll an das Ende
+  // scroll
   const endRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages]);
 
-  // Textarea autosize
+  // autosize
   const MAX_TA_HEIGHT = 200;
   const taRef = useRef<HTMLTextAreaElement | null>(null);
   const autoSizeTA = () => {
-    const el = taRef.current; if (!el) return;
+    const el = taRef.current;
+    if (!el) return;
     el.style.height = "auto";
     const newH = Math.min(MAX_TA_HEIGHT, el.scrollHeight);
     el.style.height = `${newH}px`;
@@ -205,227 +227,285 @@ export default function AIGuide(props: { apiBase?: string }) {
   };
   useEffect(autoSizeTA, [q]);
 
-  // Tabs im Analysebereich
-  const [panelTab, setPanelTab] = useState<"debug" | "retrieval" | "events" | "analysis-json">("debug");
+  // reachability
+  useEffect(() => {
+    let live = true;
+    (async () => {
+      try {
+        const r = await fetch(`${apiBase}/v1/ping`);
+        if (!live) return;
+        setApiOK(r.ok);
+      } catch {
+        if (!live) return;
+        setApiOK(false);
+      }
+    })();
+    return () => {
+      live = false;
+    };
+  }, [apiBase]);
 
-  // Hilfs-Renderer
-  const MD = ({ text }: { text: string }) =>
-    <div className="ai-md" style={{ lineHeight: 1.55 }} dangerouslySetInnerHTML={{ __html: renderMarkdown(text) }} />;
+  /* ---- Helpers ---- */
 
-  // Streaming-Senden
-  const assistantIdxRef = useRef<number>(-1);
+  const addEvent = (type: EventRow["type"], data: any) =>
+    setEvents((evs) => [...evs, { ts: Date.now(), type, data }]);
+
+  function resetChat() {
+    setMessages([]);
+    setLastCitations([]);
+    setLastMeta(null);
+    setEvents([]);
+    setConversationId(null);
+  }
+
+  /* ---- Send (SSE + Fallback) ---- */
+
   async function send() {
     if (!q.trim() || loading || apiOK === false) return;
     setLoading(true);
-    setEventLog([]);
+    setEvents([]);
 
-    // Optimistic UI: user + leere assistant
-    setMessages((prev) => {
-        const userMsg: Msg = { role: "user", content: q };
-        const assistantMsg: Msg = { role: "assistant", content: "" };
-        const next: Msg[] = [...prev, userMsg, assistantMsg];
-        assistantIdxRef.current = next.length - 1;
-        return next;
-    });
+    // optimistic: user + leerer assistant
+    setMessages((prev) => [
+      ...prev,
+      { role: "user", content: q } as Msg,
+      { role: "assistant", content: "" } as Msg,
+    ]);
+    const assistantIdx = messages.length + 1;
 
     const body: any = { question: q, top_k: k };
     if (conversationId) body.conversation_id = conversationId;
 
-    // Timeouts / Fallback
+    const url = debug ? `${apiBase}/v1/chat/stream?debug=1` : `${apiBase}/v1/chat/stream`;
     let gotFirstToken = false;
-    const firstTokenWatch = window.setTimeout(() => {
-      if (!gotFirstToken) abortAndFallback();
-    }, 6000);
-    const hardWatch = window.setTimeout(() => setLoading(false), 45000);
 
-    function log(ev: string, payload: any) {
-      setEventLog(prev => {
-        const ts = new Date().toISOString().split("T")[1].replace("Z","");
-        const line = `${ts}  ${ev}: ${typeof payload === "string" ? payload : JSON.stringify(payload)}`;
-        const trimmed = prev.length > 600 ? prev.slice(-600) : prev;
-        return [...trimmed, line];
-      });
-    }
-
-    const streamURL = `${apiBase}/v1/chat/stream${debugFlag ? "?debug=1" : ""}`;
-    const { controller, promise } = createSSEStream(streamURL, body, (ev, data) => {
-      if (ev === "meta") {
-        log(ev, data);
-        if (data?.conversation_id && data.conversation_id !== conversationId) setConversationId(data.conversation_id);
-        if (Array.isArray(data?.citations)) setLastCitations(data.citations as Citation[]);
-        if (data?.meta) setLastMeta(data.meta as Meta);
-      } else if (ev === "token") {
-        const delta = (data && typeof data.delta === "string") ? data.delta : "";
-        if (!delta) return;
-        gotFirstToken = true;
-        setMessages(prev => {
-          const next = prev.slice();
-          const i = Math.min(Math.max(assistantIdxRef.current, 0), next.length - 1);
-          if (next[i] && next[i].role === "assistant") {
-            next[i] = { ...next[i], content: (next[i].content || "") + delta };
-          }
-          return next;
-        });
-      } else if (ev === "done") {
-        log(ev, data);
-        if (data?.meta) setLastMeta(data.meta as Meta);
-        setLoading(false);
-      } else {
-        // unbekanntes Event
-        log(ev, data);
+    const tokenWatch = window.setTimeout(() => {
+      if (!gotFirstToken) {
+        addEvent("info", "no token within 6s → fallback /v1/chat");
+        fallbackRequest();
       }
-    });
+    }, 6000);
 
-    async function abortAndFallback() {
-      try { controller.abort(); } catch {}
+    const { controller, promise } = createSSEStream(
+      url,
+      body,
+      (ev, data) => {
+        if (ev === "meta") {
+          addEvent("meta", data);
+          const meta = (data?.meta || null) as Meta | null;
+          setLastMeta(meta);
+          const cits = Array.isArray(data?.citations) ? (data.citations as Citation[]) : [];
+          setLastCitations(cits);
+          if (data?.conversation_id && data.conversation_id !== conversationId) {
+            setConversationId(data.conversation_id);
+          }
+        } else if (ev === "token") {
+          gotFirstToken = true;
+          addEvent("token", data);
+          const delta = typeof data?.delta === "string" ? data.delta : "";
+          if (!delta) return;
+          setMessages((prev) => {
+            const next = prev.slice();
+            const idx = assistantIdx < next.length ? assistantIdx : next.length - 1;
+            if (next[idx] && next[idx].role === "assistant") {
+              next[idx] = { ...next[idx], content: (next[idx].content || "") + delta };
+            }
+            return next;
+          });
+        } else if (ev === "done") {
+          addEvent("done", data);
+          const meta = (data?.meta || null) as Meta | null;
+          if (meta) setLastMeta(meta);
+          setLoading(false);
+          window.clearTimeout(tokenWatch);
+        }
+      }
+    );
+
+    async function fallbackRequest() {
       try {
-        const url = `${apiBase}/v1/chat${debugFlag ? "?debug=1" : ""}`;
-        const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+        controller.abort();
+      } catch {}
+      try {
+        const r = await fetch(`${apiBase}/v1/chat${debug ? "?debug=1" : ""}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
         const data = await r.json();
         if (!r.ok) throw new Error(data?.detail || `${r.status} ${r.statusText}`);
-        if (data?.conversation_id && data.conversation_id !== conversationId) setConversationId(data.conversation_id);
-        setLastCitations((data?.citations || []) as Citation[]);
-        setLastMeta(data?.meta || null);
-        setMessages(prev => {
+
+        const answer = (data.answer || "").trim();
+        setMessages((prev) => {
           const next = prev.slice();
-          const i = Math.min(Math.max(assistantIdxRef.current, 0), next.length - 1);
-          if (next[i] && next[i].role === "assistant") {
-            next[i] = { role: "assistant", content: (data.answer || "").trim(), citations: data.citations || [] };
+          const idx = assistantIdx < next.length ? assistantIdx : next.length - 1;
+          if (next[idx] && next[idx].role === "assistant") {
+            next[idx] = { ...next[idx], content: answer, citations: data.citations || [] };
           }
           return next;
         });
+        setLastCitations(data.citations || []);
+        setLastMeta(data.meta || null);
+        if (data.conversation_id && data.conversation_id !== conversationId) {
+          setConversationId(data.conversation_id);
+        }
       } catch (e: any) {
-        setMessages(prev => {
+        addEvent("error", e?.message || String(e));
+        setMessages((prev) => {
           const next = prev.slice();
-          const i = Math.min(Math.max(assistantIdxRef.current, 0), next.length - 1);
-          if (next[i] && next[i].role === "assistant") {
-            next[i] = { role: "assistant", content: `⚠ ${e.message || String(e)}` };
+          const idx = assistantIdx < next.length ? assistantIdx : next.length - 1;
+          if (next[idx] && next[idx].role === "assistant") {
+            next[idx] = { ...next[idx], content: `⚠ ${e.message || String(e)}` };
           }
           return next;
         });
       } finally {
         setLoading(false);
+        window.clearTimeout(tokenWatch);
       }
     }
 
     try {
       await promise;
-    } catch {
-      await abortAndFallback();
+    } catch (e: any) {
+      addEvent("error", e?.message || String(e));
+      await fallbackRequest();
     } finally {
-      window.clearTimeout(firstTokenWatch);
-      window.clearTimeout(hardWatch);
       setQ("");
       setTimeout(() => taRef.current?.focus(), 0);
     }
   }
 
-  function resetConversation() {
-    setMessages([]);
-    setLastMeta(null);
-    setLastCitations([]);
-    setEventLog([]);
-    setConversationId(null);
-    setQ("");
-  }
+  /* ---- Derived ---- */
 
-  // Analyse-JSON (leicht „LLM-freundlich“)
-  const analysisJSON = useMemo(() => {
-    const lastAssistant = [...messages].reverse().find(m => m.role === "assistant");
-    const lastUser = [...messages].reverse().find(m => m.role === "user");
-    return JSON.stringify({
-      conversation_id: conversationId,
-      question: lastUser?.content ?? null,
-      answer_preview: lastAssistant?.content?.slice(0, 280) ?? null,
-      top_k: k,
-      citations: lastCitations,
-      meta: lastMeta,
-      api_ok: apiOK,
-      model: lastMeta?.backend?.chat_model,
-      collection: lastMeta?.backend?.collection,
-    }, null, 2);
-  }, [conversationId, messages, k, lastCitations, lastMeta, apiOK]);
+  const waitingOnAssistant =
+    loading &&
+    messages.length > 0 &&
+    messages[messages.length - 1].role === "assistant" &&
+    (messages[messages.length - 1].content || "").length === 0;
 
-  // UI
+  /* ------------------------------- UI ------------------------------- */
+
   return (
-    <div style={{ maxWidth: 1200, margin: "1.5rem auto", padding: "0 1rem" }}>
-      {/* Kopfzeile */}
+    <div style={{ maxWidth: 1200, margin: "1rem auto", padding: "0 0.5rem" }}>
+      {/* Header */}
       <div
         style={{
-          display:"flex", gap:12, alignItems:"center", marginBottom: 12,
-          border:`1px solid ${theme.border}`, borderRadius: 12, padding: "10px 12px", background: theme.headerBg
+          border: `1px solid ${t.border}`,
+          borderRadius: 12,
+          padding: 12,
+          background: t.headerBg,
+          display: "flex",
+          gap: 10,
+          alignItems: "center",
+          marginBottom: 12,
         }}
       >
         <strong>AI-Guide Studio</strong>
-        <span style={{ fontSize: 12, opacity:.75 }}>
-          {apiOK === null ? "API prüfen…" : apiOK ? "verbunden" : "offline"}
+        <span style={{ fontSize: 12, color: t.subtext }}>
+          {apiOK === null ? "prüfe…" : apiOK ? "verbunden" : "offline"}
         </span>
-        <span style={{ fontSize: 12, opacity:.65 }}>
-          {conversationId ? `CID ${conversationId.slice(0,8)}…` : "neue Unterhaltung"}
+        <span style={{ marginLeft: "auto", fontSize: 12, color: t.subtext }}>
+          {conversationId ? `CID ${conversationId.slice(0, 8)}…` : "neu"}
         </span>
-        <div style={{ marginLeft: "auto", display:"flex", gap:8, alignItems:"center" }}>
-          <label style={{ display:"flex", gap:6, alignItems:"center", fontSize:13 }}>
-            <input type="checkbox" checked={debugFlag} onChange={(e)=>setDebugFlag(e.target.checked)} />
-            Debug
-          </label>
-          <label style={{ display:"flex", gap:6, alignItems:"center", fontSize:13 }}>
-            top_k
-            <input
-              type="number" min={1} max={10} value={k}
-              onChange={(e)=>setK(Math.max(1,Math.min(10,Number(e.target.value)||5)))}
-              style={{ width:64, padding:"4px 6px", borderRadius:8, border:`1px solid ${theme.muted}`, background: theme.bg, color: theme.text }}
-            />
-          </label>
-          <button onClick={resetConversation}
-            style={{ padding:"6px 10px", borderRadius:8, border:`1px solid ${theme.muted}`, background: theme.bg, cursor:"pointer" }}>
-            Reset
-          </button>
-        </div>
+        <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <input type="checkbox" checked={debug} onChange={(e) => setDebug(e.target.checked)} /> Debug
+        </label>
+        <input
+          type="number"
+          min={1}
+          max={10}
+          value={k}
+          onChange={(e) => setK(Number(e.target.value))}
+          title="top_k"
+          style={{ width: 56, padding: "6px 8px", borderRadius: 8, border: `1px solid ${t.border}` }}
+        />
+        <button
+          onClick={resetChat}
+          title="Reset conversation"
+          style={{
+            border: `1px solid ${t.border}`,
+            background: t.bg,
+            borderRadius: 10,
+            padding: "6px 10px",
+            cursor: "pointer",
+          }}
+        >
+          Reset
+        </button>
       </div>
 
-      {/* 2-Spalten Layout: links Chat, rechts Analyse */}
-      <div style={{
-        display:"grid",
-        gridTemplateColumns: "minmax(320px, 1fr) 380px",
-        gap: 14
-      }}>
-        {/* Chat-Spalte */}
-        <div style={{ border:`1px solid ${theme.border}`, borderRadius:12, overflow:"hidden", background: theme.bg }}>
-          {/* Chat-Verlauf */}
-          <div style={{ maxHeight: "60vh", overflow:"auto", padding: 12, display:"grid", gap:10 }}>
-            {messages.length === 0 && (
-              <div style={{ fontSize:13, opacity:.75 }}>
-                Starte mit einer Frage. Antworten werden live gestreamt.  
-                <br/>Hinweis: Antworten basieren ausschließlich auf dem internen Kontext (RAG).
-              </div>
-            )}
+      {/* Two columns */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+        {/* Chat pane */}
+        <div
+          style={{
+            border: `1px solid ${t.border}`,
+            borderRadius: 12,
+            padding: 12,
+            display: "grid",
+            gridTemplateRows: "1fr auto",
+            minHeight: 540,
+            background: t.bg,
+          }}
+        >
+          {/* Messages */}
+          <div style={{ overflow: "auto", display: "grid", gap: 10, paddingRight: 2 }}>
             {messages.map((m, idx) => (
-              <div key={idx} style={{ justifySelf: m.role === "user" ? "end" : "start", maxWidth:"100%" }}>
-                <div style={{
-                  border: `1px solid ${theme.border}`,
-                  background: m.role === "user" ? theme.brand : theme.bg,
-                  color: m.role === "user" ? "#fff" : theme.text,
-                  borderRadius: 12,
-                  padding: "10px 12px",
-                  boxShadow: "0 1px 2px rgba(0,0,0,.04)",
-                  whiteSpace: "pre-wrap",
-                }}>
-                  <div style={{ fontSize:12, opacity:.7, marginBottom:4 }}>{m.role === "user" ? "Du" : "AI-Guide"}</div>
-                  {m.role === "assistant"
-                    ? (m.content
-                        ? <MD text={m.content} />
-                        : <div style={{ display:"flex", alignItems:"center", gap:8 }}><Spinner size={16} color={theme.text} /><span>Antwort wird generiert…</span></div>
-                      )
-                    : m.content}
+              <div key={idx} style={{ justifySelf: m.role === "user" ? "end" : "start", maxWidth: "100%" }}>
+                <div
+                  style={{
+                    border: `1px solid ${t.border}`,
+                    background: m.role === "user" ? t.primary : t.bg,
+                    color: m.role === "user" ? "#fff" : t.text,
+                    borderRadius: 12,
+                    padding: "10px 12px",
+                    whiteSpace: "pre-wrap",
+                    boxShadow: "0 1px 2px rgba(0,0,0,.04)",
+                  }}
+                >
+                  <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>
+                    {m.role === "user" ? "Du" : "AI-Guide"}
+                  </div>
+                  {m.role === "assistant" ? (
+                    m.content ? (
+                      <div
+                        className="ai-md"
+                        style={{ lineHeight: 1.5 }}
+                        dangerouslySetInnerHTML={{ __html: renderMarkdown(m.content) }}
+                      />
+                    ) : (
+                      <span style={{ opacity: 0.7, fontSize: 13 }}>Antwort wird generiert…</span>
+                    )
+                  ) : (
+                    m.content
+                  )}
                 </div>
                 {m.role === "assistant" && m.citations && m.citations.length > 0 && (
-                  <div style={{ border: `1px solid ${theme.border}`, borderRadius: 10, padding: 8, marginTop:6 }}>
-                    <div style={{ fontWeight: 600, marginBottom: 4, fontSize:13 }}>Quellen</div>
+                  <div
+                    style={{
+                      border: `1px solid ${t.border}`,
+                      borderRadius: 10,
+                      padding: 10,
+                      marginTop: 6,
+                      background: t.bg,
+                    }}
+                  >
+                    <div style={{ fontWeight: 600, marginBottom: 4, fontSize: 13 }}>Quellen</div>
                     <ul style={{ margin: 0, paddingLeft: 18 }}>
-                      {m.citations.map((c)=>(
+                      {m.citations.map((c) => (
                         <li key={c.id} style={{ fontSize: 12 }}>
-                          {c.title || "(ohne Titel)"} {typeof c.score==="number" && <span style={{ opacity: .6 }}>· {c.score.toFixed(3)}</span>}
-                          {c.url && <> – <a href={c.url} target="_blank" rel="noreferrer">{c.url}</a></>}
+                          {c.title || "(ohne Titel)"}{" "}
+                          {typeof c.score === "number" && <span style={{ opacity: 0.6 }}>· {c.score.toFixed(3)}</span>}
+                          {c.url && (
+                            <>
+                              {" "}
+                              –{" "}
+                              <a href={c.url} target="_blank" rel="noreferrer">
+                                {c.url}
+                              </a>
+                            </>
+                          )}
                         </li>
                       ))}
                     </ul>
@@ -433,208 +513,336 @@ export default function AIGuide(props: { apiBase?: string }) {
                 )}
               </div>
             ))}
-            {/* Live-Spinner, falls letzte Assistant-Bubble noch leer ist */}
-            {loading && messages[messages.length-1]?.role === "assistant" && !messages[messages.length-1]?.content && (
-              <div style={{ justifySelf: "start" }}>
-                <div style={{ border:`1px solid ${theme.border}`, borderRadius:12, padding:"10px 12px" }}>
-                  <div style={{ fontSize:12, opacity:.7, marginBottom:4 }}>AI-Guide</div>
-                  <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                    <Spinner size={16} color={theme.text} />
-                    <span>Antwort wird generiert…</span>
-                  </div>
+            {waitingOnAssistant && (
+              <div style={{ justifySelf: "start", maxWidth: "100%" }}>
+                <div style={{ border: `1px solid ${t.border}`, borderRadius: 12, padding: "10px 12px" }}>
+                  <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 4 }}>AI-Guide</div>
+                  <span style={{ opacity: 0.7, fontSize: 13 }}>Antwort wird generiert…</span>
                 </div>
               </div>
             )}
             <div ref={endRef} />
           </div>
 
-          {/* Eingabe unten */}
-          <div style={{ borderTop:`1px solid ${theme.border}`, padding: 10 }}>
+          {/* Input */}
+          <div style={{ marginTop: 10 }}>
             <textarea
               ref={taRef}
               value={q}
-              onChange={(e)=>setQ(e.target.value)}
+              onChange={(e) => setQ(e.target.value)}
               onInput={autoSizeTA}
               onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  send();
+                }
               }}
               placeholder="Frage stellen… (Enter = senden, Shift+Enter = Zeilenumbruch)"
               rows={1}
               style={{
-                width: "100%", padding: 10, borderRadius: 10,
-                border: `1px solid ${theme.border}`,
-                background: theme.bg, color: theme.text,
-                lineHeight: "1.45", resize: "none", maxHeight: MAX_TA_HEIGHT, overflowY: "auto", marginBottom: 8
+                width: "100%",
+                padding: 10,
+                borderRadius: 10,
+                border: `1px solid ${t.border}`,
+                background: t.bg,
+                color: t.text,
+                resize: "none",
+                lineHeight: "1.5",
+                maxHeight: MAX_TA_HEIGHT,
+                overflowY: "auto",
+                marginBottom: 8,
               }}
             />
-            <div style={{ display:"flex", gap:8, justifyContent:"flex-end" }}>
+            <div style={{ display: "flex", justifyContent: "flex-end" }}>
               <button
                 onClick={send}
                 disabled={loading || !q.trim() || apiOK === false}
-                style={{ padding:"8px 12px", borderRadius:10, border:`1px solid ${theme.text}`, background: theme.text, color:"#fff", cursor:"pointer", display:"inline-flex", alignItems:"center", gap:8 }}
+                style={{
+                  border: "1px solid #333",
+                  background: "#111",
+                  color: "#fff",
+                  borderRadius: 10,
+                  padding: "8px 12px",
+                  cursor: "pointer",
+                }}
               >
-                {loading ? (<><Spinner size={16} color="#fff" /> Senden…</>) : "Senden"}
+                {loading ? "Senden…" : "Senden"}
               </button>
             </div>
           </div>
         </div>
 
-        {/* Analyse-Spalte */}
-        <div style={{ border:`1px solid ${theme.border}`, borderRadius:12, overflow:"hidden", background: theme.bg }}>
+        {/* Analysis pane */}
+        <div
+          style={{
+            border: `1px solid ${t.border}`,
+            borderRadius: 12,
+            padding: 12,
+            background: t.headerBg,
+          }}
+        >
           {/* Tabs */}
-          <div style={{ display:"flex", gap:8, padding:10, borderBottom:`1px solid ${theme.border}`, background: theme.headerBg }}>
-            {(["debug","retrieval","events","analysis-json"] as const).map(tab => (
+          <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+            {(["debug", "retrieval", "events", "analysis", "all"] as const).map((tab) => (
               <button
                 key={tab}
-                onClick={()=>setPanelTab(tab)}
+                onClick={() => setActiveTab(tab)}
                 style={{
-                  padding:"6px 10px", borderRadius:8, cursor:"pointer",
-                  border: `1px solid ${panelTab===tab ? theme.text : theme.muted}`,
-                  background: panelTab===tab ? theme.text : theme.bg,
-                  color: panelTab===tab ? "#fff" : theme.text,
-                  fontSize: 12, textTransform:"uppercase", letterSpacing: ".02em"
+                  border: `1px solid ${activeTab === tab ? "#111" : t.border}`,
+                  background: activeTab === tab ? "#111" : t.bg,
+                  color: activeTab === tab ? "#fff" : t.text,
+                  borderRadius: 10,
+                  padding: "6px 10px",
+                  cursor: "pointer",
+                  textTransform: "uppercase",
+                  fontSize: 12,
+                  letterSpacing: 0.3,
                 }}
               >
-                {tab === "debug" ? "Debug" : tab === "retrieval" ? "Retrieval" : tab === "events" ? "Events" : "Analysis JSON"}
+                {tab.toUpperCase()}
               </button>
             ))}
-            <div style={{ marginLeft:"auto", display:"flex", gap:8 }}>
+            <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
               <button
-                onClick={() => { navigator.clipboard?.writeText(analysisJSON).catch(()=>{}); }}
-                style={{ padding:"6px 10px", borderRadius:8, border:`1px solid ${theme.muted}`, background: theme.bg, cursor:"pointer", fontSize:12 }}
+                onClick={() =>
+                  navigator.clipboard
+                    .writeText(JSON.stringify({ meta: lastMeta, citations: lastCitations, events }, null, 2))
+                    .catch(() => {})
+                }
+                style={{
+                  border: `1px solid ${t.border}`,
+                  background: t.bg,
+                  color: t.text,
+                  borderRadius: 10,
+                  padding: "6px 10px",
+                  cursor: "pointer",
+                  fontSize: 12,
+                }}
               >
-                Copy Analysis
+                Copy JSON
+              </button>
+              <button
+                onClick={() => {
+                  const all = composeALL(messages, lastCitations, lastMeta, events);
+                  navigator.clipboard.writeText(all).catch(() => {});
+                }}
+                style={{
+                  border: `1px solid ${t.border}`,
+                  background: t.bg,
+                  color: t.text,
+                  borderRadius: 10,
+                  padding: "6px 10px",
+                  cursor: "pointer",
+                  fontSize: 12,
+                }}
+              >
+                Copy ALL
               </button>
             </div>
           </div>
 
-          {/* Panel-Inhalte */}
-          <div style={{ padding:12, maxHeight: "60vh", overflow:"auto" }}>
-            {panelTab === "debug" && (
-              <>
-                {!lastMeta && <div style={{ fontSize:13, opacity:.75 }}>Noch keine Debug-Daten. Sende eine Frage mit aktivem <em>Debug</em>-Schalter.</div>}
-                {lastMeta && (
-                  <div style={{ display:"grid", gap:12 }}>
-                    {/* Timings */}
-                    <div>
-                      <div style={{ fontWeight:600, marginBottom:6 }}>Timings</div>
-                      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(120px,1fr))", gap:8 }}>
-                        <Stat label="Embedding" value={fmtMs(lastMeta.timing_ms.embedding)} />
-                        <Stat label="Search" value={fmtMs(lastMeta.timing_ms.search)} />
-                        <Stat label="LLM" value={fmtMs(lastMeta.timing_ms.llm)} />
-                        <Stat label="Total" value={fmtMs(lastMeta.timing_ms.total)} />
-                      </div>
-                    </div>
-                    {/* Backend */}
-                    <div>
-                      <div style={{ fontWeight:600, marginBottom:6 }}>Backend</div>
-                      <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
-                        <Chip>Collection: <strong>{lastMeta.backend.collection}</strong></Chip>
-                        <Chip>Embed: <strong>{lastMeta.backend.embed_backend}</strong></Chip>
-                        <Chip>Model: <strong>{lastMeta.backend.chat_model}</strong></Chip>
-                        {lastMeta.token_usage && <Chip>Tokens: <strong>{lastMeta.token_usage.total_tokens ?? "-"}</strong></Chip>}
-                        {lastMeta.messages_preview?.history_sent?.length ? (
-                          <Chip>History: <strong>{lastMeta.messages_preview.history_sent.join(" → ")}</strong></Chip>
-                        ) : null}
-                      </div>
-                    </div>
-                    {/* Prompt-Preview */}
-                    {lastMeta.messages_preview?.user && (
-                      <div>
-                        <div style={{ fontWeight:600, marginBottom:6 }}>User-Prompt (Preview)</div>
-                        <pre style={preStyle(theme)}>{lastMeta.messages_preview.user}</pre>
-                      </div>
+          {/* Tab content */}
+          {activeTab === "debug" && (
+            <div style={{ display: "grid", gap: 12 }}>
+              <SectionTitle>Timings</SectionTitle>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(140px, 1fr))", gap: 10 }}>
+                <Stat label="Embedding" value={`${lastMeta?.timing_ms.embedding ?? "-"} ms`} />
+                <Stat label="Search" value={`${lastMeta?.timing_ms.search ?? "-"} ms`} />
+                <Stat label="LLM" value={`${lastMeta?.timing_ms.llm ?? "-"} ms`} />
+                <Stat label="Total" value={`${lastMeta?.timing_ms.total ?? "-"} ms`} />
+              </div>
+              <SectionTitle>Backend</SectionTitle>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {lastMeta?.backend?.collection && (
+                  <Chip>
+                    Collection: <strong>{lastMeta.backend.collection}</strong>
+                  </Chip>
+                )}
+                {lastMeta?.backend?.embed_backend && (
+                  <Chip>
+                    Embed: <strong>{lastMeta.backend.embed_backend}</strong>
+                  </Chip>
+                )}
+                {lastMeta?.backend?.chat_model && (
+                  <Chip>
+                    Model: <strong>{lastMeta.backend.chat_model}</strong>
+                  </Chip>
+                )}
+                {lastMeta?.token_usage && (
+                  <Chip>Tokens: {lastMeta.token_usage.total_tokens ?? "-"}</Chip>
+                )}
+                {lastMeta?.messages_preview?.history_sent && lastMeta.messages_preview.history_sent.length > 0 && (
+                  <Chip>History: {lastMeta.messages_preview.history_sent.join(" → ")}</Chip>
+                )}
+              </div>
+
+              <SectionTitle>Citations</SectionTitle>
+              <ul style={{ margin: 0, paddingLeft: 18, opacity: 0.9 }}>
+                {lastCitations.length === 0 && <li style={{ opacity: 0.6 }}>–</li>}
+                {lastCitations.map((c) => (
+                  <li key={c.id} style={{ fontSize: 13 }}>
+                    {c.title || "(ohne Titel)"}{" "}
+                    {typeof c.score === "number" && <span style={{ opacity: 0.6 }}>· {c.score.toFixed(3)}</span>}
+                    {c.url && (
+                      <>
+                        {" "}
+                        –{" "}
+                        <a href={c.url} target="_blank" rel="noreferrer">
+                          {c.url}
+                        </a>
+                      </>
                     )}
-                    {/* Citations */}
-                    {lastCitations?.length ? (
-                      <div>
-                        <div style={{ fontWeight:600, marginBottom:6 }}>Citations</div>
-                        <ul style={{ margin:0, paddingLeft:18 }}>
-                          {lastCitations.map((c)=>(
-                            <li key={c.id} style={{ fontSize:13 }}>
-                              {c.title || "(ohne Titel)"} {typeof c.score==="number" && <span style={{ opacity:.6 }}>· {c.score.toFixed(3)}</span>}
-                              {c.url && <> – <a href={c.url} target="_blank" rel="noreferrer">{c.url}</a></>}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {activeTab === "retrieval" && (
+            <div style={{ display: "grid", gap: 10 }}>
+              <SectionTitle>Retrieval</SectionTitle>
+              {lastMeta?.retrieval?.map((r) => (
+                <div key={`${r.rank}-${r.id}`} style={{ border: `1px solid ${t.border}`, borderRadius: 10, padding: 10 }}>
+                  <div style={{ display: "flex", gap: 8, alignItems: "baseline", flexWrap: "wrap" }}>
+                    <span style={{ fontSize: 12, opacity: 0.7 }}>#{r.rank}</span>
+                    <strong>{r.title || "(ohne Titel)"} </strong>
+                    {typeof r.score === "number" && (
+                      <span style={{ fontSize: 12, opacity: 0.7 }}>score {r.score.toFixed(3)}</span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: 12, opacity: 0.75, marginTop: 4, wordBreak: "break-all" }}>
+                    id {r.id}
+                    {r.url ? (
+                      <>
+                        {" "}
+                        ·{" "}
+                        <a href={r.url} target="_blank" rel="noreferrer">
+                          {r.url}
+                        </a>
+                      </>
                     ) : null}
                   </div>
+                  {r.snippet && <div style={{ marginTop: 8, whiteSpace: "pre-wrap", fontSize: 13 }}>{r.snippet}</div>}
+                </div>
+              ))}
+              {!lastMeta?.retrieval?.length && <div style={{ opacity: 0.6 }}>–</div>}
+            </div>
+          )}
+
+          {activeTab === "events" && (
+            <div style={{ display: "grid", gap: 8 }}>
+              <SectionTitle>SSE Events</SectionTitle>
+              <div
+                style={{
+                  border: `1px solid ${t.border}`,
+                  borderRadius: 10,
+                  background: t.bg,
+                  padding: 10,
+                  maxHeight: 360,
+                  overflow: "auto",
+                  fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+                  fontSize: 12,
+                  whiteSpace: "pre-wrap",
+                }}
+              >
+                {events.length === 0 ? (
+                  <span style={{ opacity: 0.6 }}>–</span>
+                ) : (
+                  events.map((e, i) => (
+                    <div key={i} style={{ marginBottom: 6 }}>
+                      <span style={{ opacity: 0.65 }}>
+                        {new Date(e.ts).toLocaleTimeString()} {e.type.toUpperCase()}{" "}
+                      </span>
+                      {typeof e.data === "string" ? e.data : JSON.stringify(e.data)}
+                    </div>
+                  ))
                 )}
-              </>
-            )}
+              </div>
+            </div>
+          )}
 
-            {panelTab === "retrieval" && (
-              <>
-                {!lastMeta?.retrieval?.length && <div style={{ fontSize:13, opacity:.75 }}>Keine Retrieval-Daten vorhanden.</div>}
-                {lastMeta?.retrieval?.length ? (
-                  <div style={{ display:"grid", gap:8 }}>
-                    {lastMeta.retrieval.map((r)=>(
-                      <div key={`${r.rank}-${r.id}`} style={{ border:`1px solid ${theme.border}`, borderRadius:8, padding:10 }}>
-                        <div style={{ display:"flex", gap:8, alignItems:"baseline", flexWrap:"wrap" }}>
-                          <span style={{ fontSize:12, opacity:.7 }}>#{r.rank}</span>
-                          <strong>{r.title || "(ohne Titel)"}</strong>
-                          {typeof r.score === "number" && <span style={{ fontSize:12, opacity:.7 }}>score {r.score.toFixed(3)}</span>}
-                        </div>
-                        <div style={{ fontSize:12, opacity:.75, marginTop:4, wordBreak:"break-all" }}>
-                          id {r.id}{r.url ? <> · <a href={r.url} target="_blank" rel="noreferrer">{r.url}</a></> : null}
-                        </div>
-                        {r.snippet && <div style={{ marginTop:8, whiteSpace:"pre-wrap", fontSize:13 }}>{r.snippet}</div>}
-                      </div>
-                    ))}
-                  </div>
-                ) : null}
-              </>
-            )}
+          {activeTab === "analysis" && (
+            <div style={{ display: "grid", gap: 8 }}>
+              <SectionTitle>Analysis JSON</SectionTitle>
+              <pre
+                style={{
+                  border: `1px solid ${t.border}`,
+                  borderRadius: 10,
+                  background: t.bg,
+                  padding: 10,
+                  maxHeight: 480,
+                  overflow: "auto",
+                  fontSize: 12,
+                }}
+              >
+                {JSON.stringify({ meta: lastMeta, citations: lastCitations, events }, null, 2)}
+              </pre>
+            </div>
+          )}
 
-            {panelTab === "events" && (
-              <pre style={preStyle(theme)}>{eventLog.length ? eventLog.join("\n") : "// noch keine Events"}</pre>
-            )}
-
-            {panelTab === "analysis-json" && (
-              <pre style={preStyle(theme)}>{analysisJSON}</pre>
-            )}
-          </div>
+          {activeTab === "all" && (
+            <div style={{ display: "grid", gap: 8 }}>
+              <SectionTitle>ALL (kopierbar)</SectionTitle>
+              <textarea
+                readOnly
+                value={composeALL(messages, lastCitations, lastMeta, events)}
+                style={{
+                  width: "100%",
+                  minHeight: 520,
+                  border: `1px solid ${t.border}`,
+                  borderRadius: 10,
+                  padding: 10,
+                  background: t.bg,
+                  color: t.text,
+                  fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+                  fontSize: 12,
+                  lineHeight: 1.5,
+                }}
+              />
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
 }
 
-// ---------- UI Bausteine ----------
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div style={{ border:"1px solid var(--sl-color-gray-5, #e5e7eb)", borderRadius:8, padding:"8px 10px" }}>
-      <div style={{ fontSize:12, opacity:.7 }}>{label}</div>
-      <div style={{ fontWeight:600 }}>{value}</div>
-    </div>
-  );
+/* -------------------------- Compose ALL text -------------------------- */
+
+function composeALL(msgs: Msg[], citations: Citation[], meta: Meta | null, events: EventRow[]) {
+  const lines: string[] = [];
+  lines.push("# Conversation");
+  msgs.forEach((m) => {
+    lines.push(`\n## ${m.role.toUpperCase()}\n`);
+    lines.push(m.content || "");
+  });
+
+  lines.push("\n\n# Citations");
+  if (!citations?.length) {
+    lines.push("(none)");
+  } else {
+    citations.forEach((c, i) =>
+      lines.push(
+        `- [${i + 1}] ${c.title || "(ohne Titel)"}${typeof c.score === "number" ? ` · ${c.score.toFixed(3)}` : ""}${
+          c.url ? ` – ${c.url}` : ""
+        }`
+      )
+    );
+  }
+
+  lines.push("\n\n# Meta");
+  lines.push(JSON.stringify(meta || {}, null, 2));
+
+  lines.push("\n\n# Events");
+  events.forEach((e) => lines.push(`${new Date(e.ts).toISOString()} ${e.type.toUpperCase()} ${jsonStr(e.data)}`));
+
+  return lines.join("\n");
 }
-function Chip({ children }: { children: React.ReactNode }) {
-  return (
-    <span style={{
-      fontSize:12, border:"1px solid var(--sl-color-gray-5, #e5e7eb)",
-      borderRadius:16, padding:"4px 10px", background:"var(--sl-color-bg, #fff)"
-    }}>
-      {children}
-    </span>
-  );
-}
-function preStyle(theme: ReturnType<typeof useThemeVars>): React.CSSProperties {
-  return {
-    background: theme.headerBg,
-    color: theme.text,
-    border: `1px solid ${theme.border}`,
-    borderRadius: 8,
-    padding: 10,
-    margin: 0,
-    fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
-    fontSize: 12,
-    lineHeight: 1.5,
-    whiteSpace: "pre-wrap",
-    wordBreak: "break-word",
-  };
-}
-function fmtMs(v: number | null) {
-  return v == null ? "–" : `${v} ms`;
+
+function jsonStr(x: any) {
+  try {
+    return typeof x === "string" ? x : JSON.stringify(x);
+  } catch {
+    return String(x);
+  }
 }
