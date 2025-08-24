@@ -5,17 +5,9 @@ description: So nutzt du den Chat unten rechts.
 
 import ChatWidget from "../../components/ChatWidget.tsx";
 
-Der Chat unten rechts hilft dir bei Fragen rund um powere.ch (Daten, Loader, Methodik).  
-**Wichtig:** Antworten basieren ausschließlich auf internem Kontext.  
-Wenn die Info nicht im Kontext ist, sagt der Chat das ehrlich.
+Der Chat unten rechts hilft dir bei Fragen rund um powere.ch (Daten, Loader, Methodik).
+Antworten basieren ausschließlich auf internem Kontext.
 
-## Nutzung
-- **Frage tippen** → Enter sendet, **Shift+Enter** für Zeilenumbruch  
-- Antworten erscheinen **streaming** (Zeichen-für-Zeichen)  
-- Quellen siehst du unter der Antwort
+> Für Entwickler*innen gibt es die Analyse-Ansicht: **[AI-Guide Studio](/ai-guide-studio/)**.
 
-> Für Entwickler*innen gibt es eine ausführliche Analyse-Ansicht:  
-> **“AI-Guide Studio”** (Streaming, Token-Timings, Retrieval-Ranking, Debug).
-
-{/* Widget explizit auch auf dieser Seite anzeigen */}
 <ChatWidget client:load apiBase="https://api.powere.ch" suppressOnGuide={false} />
