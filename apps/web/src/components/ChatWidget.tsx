@@ -1,86 +1,157 @@
 // apps/web/src/components/ChatWidget.tsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { marked } from "marked";
+import DOMPurify from "dompurify";
 
 type Citation = { id: string; title?: string; url?: string | null; score?: number };
 type Msg = { role: "user" | "assistant"; content: string; citations?: Citation[] };
 
-const LS_CID  = "aiGuide.convId.v1";
-const LS_SIZE = "aiGuide.widget.size.v1";
+const LS_KEY_CID = "aiGuide.convId.v1";
+const LS_KEY_SIZE = "aiGuide.panelSize.v1";
+
+/** Leichtgewichtiger SVG-Spinner (dreht sich per <animateTransform>) */
+function Spinner({ size = 16, color = "currentColor" }: { size?: number; color?: string }) {
+  return (
+    <svg
+      width={size} height={size} viewBox="0 0 24 24"
+      fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+      aria-label="Lädt…"
+    >
+      <circle cx="12" cy="12" r="9" opacity="0.25" />
+      <path d="M21 12a9 9 0 0 0-9-9">
+        <animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="0.9s" repeatCount="indefinite" />
+      </path>
+    </svg>
+  );
+}
+
+function useThemeVars() {
+  // Starlight CSS-Variablen (Dark/Light)
+  const get = (v: string, fallback: string) =>
+    typeof window !== "undefined"
+      ? getComputedStyle(document.documentElement).getPropertyValue(v).trim() || fallback
+      : fallback;
+
+  const bg = get("--sl-color-bg", "#fff");
+  const text = get("--sl-color-text", "#111");
+  const border = get("--sl-color-gray-5", "#e5e7eb");
+  const headerBg = get("--sl-color-gray-6", "#f7f7f8");
+  const btnBg = get("--sl-color-bg-nav", "#fff");
+  const btnBorder = get("--sl-color-gray-4", "#d1d5db");
+  return { bg, text, border, headerBg, btnBg, btnBorder };
+}
+
+function renderMarkdown(md: string): string {
+  const html = marked.parse(md, { breaks: true }) as string;
+  return DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: [
+      "p","br","strong","em","code","pre","blockquote",
+      "ul","ol","li","a","h1","h2","h3","h4","h5","h6"
+    ],
+    ALLOWED_ATTR: ["href","target","rel","class"],
+  });
+}
+
+function useSSEStream(url: string, body: any, onEvent: (ev: string, data: any) => void) {
+  const start = async () => {
+    const ac = new AbortController();
+    const r = await fetch(url, {
+      method: "POST",
+      headers: { "Accept": "text/event-stream", "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: ac.signal,
+    });
+    if (!r.ok || !r.body) throw new Error(`HTTP ${r.status} ${r.statusText}`);
+
+    const reader = r.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      let idx;
+      while ((idx = buffer.indexOf("\n\n")) !== -1) {
+        const block = buffer.slice(0, idx);
+        buffer = buffer.slice(idx + 2);
+
+        let ev = "message";
+        let data = "";
+        for (const line of block.split("\n")) {
+          if (line.startsWith("event:")) ev = line.slice(6).trim();
+          else if (line.startsWith("data:")) data += (data ? "\n" : "") + line.slice(5).trim();
+        }
+        if (data) {
+          try { onEvent(ev, JSON.parse(data)); }
+          catch { onEvent(ev, data); }
+        }
+      }
+    }
+    return ac;
+  };
+  return { start };
+}
 
 export default function ChatWidget(props: { apiBase?: string; suppressOnGuide?: boolean }) {
-  const [open, setOpen] = useState(false);
+  const theme = useThemeVars();
+
+  // ggf. auf /guide unterdrücken
   const [hidden, setHidden] = useState(false);
-
-  // API & Chat
-  const [apiOK, setApiOK] = useState<boolean | null>(null);
-  const [conversationId, setConversationId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<Msg[]>([]);
-  const [q, setQ] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  // Panelgröße (persistiert) – unten rechts verankert
-  const [width, setWidth] = useState<number>(380);
-  const [height, setHeight] = useState<number>(520);
-
-  const taRef  = useRef<HTMLTextAreaElement | null>(null);
-  const endRef = useRef<HTMLDivElement | null>(null);
-  const resizeState = useRef<{ startX: number; startY: number; startW: number; startH: number; active: boolean } | null>(null);
-
-  // Starlight-Farben (funktionieren in dark/light)
-  const COLORS = {
-    bg:       "var(--sl-color-bg)",
-    bgSoft:   "var(--sl-color-bg-soft)",
-    text:     "var(--sl-color-text)",
-    hairline: "var(--sl-color-hairline)",
-  } as const;
-
-  // Bubble auf /guide optional ausblenden
   useEffect(() => {
     if (props.suppressOnGuide === false) return;
     if (typeof window !== "undefined") setHidden(window.location.pathname.startsWith("/guide"));
   }, [props.suppressOnGuide]);
+  if (hidden) return null;
 
   // API-Basis
   const apiBase = useMemo(() => {
     if (props.apiBase && props.apiBase.trim()) return props.apiBase;
-    // @ts-ignore – PUBLIC_ Variablen werden beim Build ersetzt
+    // @ts-ignore build-time env
     const envBase = (import.meta as any)?.env?.PUBLIC_API_BASE as string | undefined;
     if (envBase && envBase.trim()) return envBase;
     if (typeof window !== "undefined") return `${window.location.protocol}//${window.location.hostname}:9000`;
     return "http://127.0.0.1:9000";
   }, [props.apiBase]);
 
-  // Größe laden/speichern
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      const raw = window.localStorage.getItem(LS_SIZE);
-      if (raw) {
-        const { w, h } = JSON.parse(raw);
-        if (typeof w === "number") setWidth(w);
-        if (typeof h === "number") setHeight(h);
-      }
-    } catch {}
-  }, []);
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try { window.localStorage.setItem(LS_SIZE, JSON.stringify({ w: width, h: height })); } catch {}
-  }, [width, height]);
+  // State
+  const [open, setOpen] = useState(false);
+  const [apiOK, setApiOK] = useState<boolean | null>(null);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<Msg[]>([]);
+  const [q, setQ] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  // Konversation-ID (Anzeige entfernt, aber für Verlauf behalten)
+  // Panel-Size (persist)
+  const [{ w, h }, setSize] = useState(() => {
+    if (typeof window !== "undefined") {
+      const raw = window.localStorage.getItem(LS_KEY_SIZE);
+      if (raw) { try { return JSON.parse(raw); } catch {} }
+    }
+    return { w: 420, h: 520 };
+  });
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const cid = window.localStorage.getItem(LS_CID);
+      window.localStorage.setItem(LS_KEY_SIZE, JSON.stringify({ w, h }));
+    }
+  }, [w, h]);
+
+  // Conv-ID wiederherstellen/persistieren
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const cid = window.localStorage.getItem(LS_KEY_CID);
       if (cid) setConversationId(cid);
     }
   }, []);
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (conversationId) window.localStorage.setItem(LS_CID, conversationId);
-    else window.localStorage.removeItem(LS_CID);
+    if (typeof window !== "undefined") {
+      if (conversationId) window.localStorage.setItem(LS_KEY_CID, conversationId);
+      else window.localStorage.removeItem(LS_KEY_CID);
+    }
   }, [conversationId]);
 
-  // API Ping
+  // API ping
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -93,19 +164,20 @@ export default function ChatWidget(props: { apiBase?: string; suppressOnGuide?: 
         setApiOK(false);
       }
     })();
-    return () => { alive = false; };
+    return () => { alive = false };
   }, [apiBase]);
 
-  // Scroll ans Ende
+  // Scroll
+  const endRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    if (open) endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, open]);
 
-  // Textarea auto-height
+  // Textarea autosize
   const MAX_TA_HEIGHT = 180;
+  const taRef = useRef<HTMLTextAreaElement | null>(null);
   const autoSizeTA = () => {
-    const el = taRef.current;
-    if (!el) return;
+    const el = taRef.current; if (!el) return;
     el.style.height = "auto";
     const newH = Math.min(MAX_TA_HEIGHT, el.scrollHeight);
     el.style.height = `${newH}px`;
@@ -113,32 +185,122 @@ export default function ChatWidget(props: { apiBase?: string; suppressOnGuide?: 
   };
   useEffect(autoSizeTA, [q, open]);
 
+  // Resize-Griff (oben links)
+  const resizingRef = useRef<null | { startX: number; startY: number; startW: number; startH: number }>(null);
+  function onResizeDown(e: React.MouseEvent) {
+    e.preventDefault();
+    resizingRef.current = { startX: e.clientX, startY: e.clientY, startW: w, startH: h };
+    window.addEventListener("mousemove", onResizeMove);
+    window.addEventListener("mouseup", onResizeUp);
+  }
+  function onResizeMove(e: MouseEvent) {
+    const st = resizingRef.current; if (!st) return;
+    const dx = st.startX - e.clientX;
+    const dy = st.startY - e.clientY;
+    const nw = Math.min(Math.max(320, st.startW + dx), Math.min(640, window.innerWidth - 24));
+    const nh = Math.min(Math.max(300, st.startH + dy), Math.min(800, window.innerHeight - 140));
+    setSize({ w: nw, h: nh });
+  }
+  function onResizeUp() {
+    resizingRef.current = null;
+    window.removeEventListener("mousemove", onResizeMove);
+    window.removeEventListener("mouseup", onResizeUp);
+  }
+
+  const MD = ({ text }: { text: string }) => (
+    <div className="ai-md" dangerouslySetInnerHTML={{ __html: renderMarkdown(text) }} style={{ lineHeight: 1.5 }} />
+  );
+
   async function send() {
     if (!q.trim() || loading || apiOK === false) return;
     setLoading(true);
+
+    // optimistic user
+    setMessages((prev) => [...prev, { role: "user", content: q }]);
+
+    // assistant placeholder (leer → zeigt Spinner)
+    let assistantIndex = -1;
+    setMessages((prev) => {
+      assistantIndex = prev.length;
+      return [...prev, { role: "assistant", content: "" }];
+    });
+
+    const body: any = { question: q, top_k: 5 };
+    if (conversationId) body.conversation_id = conversationId;
+
+    const streamURL = `${apiBase}/v1/chat/stream`;
+    const { start } = useSSEStream(streamURL, body, (ev, data) => {
+      if (ev === "meta") {
+        if (data?.conversation_id && data.conversation_id !== conversationId) {
+          setConversationId(data.conversation_id);
+        }
+        if (Array.isArray(data?.citations) && data.citations.length > 0) {
+          setMessages((prev) => {
+            const next = prev.slice();
+            const idx = assistantIndex >= 0 ? assistantIndex : next.length - 1;
+            if (next[idx] && next[idx].role === "assistant") {
+              next[idx] = { ...next[idx], citations: data.citations as Citation[] };
+            }
+            return next;
+          });
+        }
+      } else if (ev === "token") {
+        const delta = typeof data?.delta === "string" ? data.delta : "";
+        if (!delta) return;
+        setMessages((prev) => {
+          const next = prev.slice();
+          const idx = assistantIndex >= 0 ? assistantIndex : next.length - 1;
+          if (next[idx] && next[idx].role === "assistant") {
+            next[idx] = { ...next[idx], content: (next[idx].content || "") + delta };
+          }
+          return next;
+        });
+      } else if (ev === "done") {
+        setLoading(false);
+      }
+    });
+
     try {
-      const url  = `${apiBase}/v1/chat`;
-      const body: any = { question: q, top_k: 5 };
-      if (conversationId) body.conversation_id = conversationId;
+      await start();
+    } catch (e) {
+      // Fallback auf non-stream
+      try {
+        const r = await fetch(`${apiBase}/v1/chat`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data?.detail || `${r.status} ${r.statusText}`);
+        const answer = (data.answer || "").trim();
+        const citations = (data.citations || []) as Citation[];
 
-      // optimistic
-      setMessages((prev) => [...prev, { role: "user", content: q }]);
-
-      const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-      const data = await r.json();
-      if (!r.ok) throw new Error(data?.detail || `${r.status} ${r.statusText}`);
-
-      const answer = (data.answer || "").trim();
-      const cites  = (data.citations || []) as Citation[];
-      if (data.conversation_id && data.conversation_id !== conversationId) setConversationId(data.conversation_id);
-
-      setMessages((prev) => [...prev, { role: "assistant", content: answer, citations: cites }]);
+        setMessages((prev) => {
+          const next = prev.slice();
+          const idx = assistantIndex >= 0 ? assistantIndex : next.length - 1;
+          if (next[idx] && next[idx].role === "assistant") {
+            next[idx] = { role: "assistant", content: answer, citations };
+          }
+          return next;
+        });
+        if (data.conversation_id && data.conversation_id !== conversationId) {
+          setConversationId(data.conversation_id);
+        }
+      } catch (e2: any) {
+        setMessages((prev) => {
+          const next = prev.slice();
+          const idx = assistantIndex >= 0 ? assistantIndex : next.length - 1;
+          if (next[idx] && next[idx].role === "assistant") {
+            next[idx] = { role: "assistant", content: `⚠ ${e2.message || String(e2)}` };
+          }
+          return next;
+        });
+      } finally {
+        setLoading(false);
+      }
+    } finally {
       setQ("");
       setTimeout(() => taRef.current?.focus(), 0);
-    } catch (e: any) {
-      setMessages((prev) => [...prev, { role: "assistant", content: `⚠ ${e.message || String(e)}` }]);
-    } finally {
-      setLoading(false);
     }
   }
 
@@ -148,34 +310,16 @@ export default function ChatWidget(props: { apiBase?: string; suppressOnGuide?: 
     setQ("");
   }
 
-  // Resize-Handler (GRIFF OBEN LINKS; Panel unten-rechts bleibt fix)
-  function onResizeStart(e: React.MouseEvent<HTMLDivElement>) {
-    e.preventDefault();
-    resizeState.current = { startX: e.clientX, startY: e.clientY, startW: width, startH: height, active: true };
-    const onMove = (ev: MouseEvent) => {
-      if (!resizeState.current?.active) return;
-      const dx = ev.clientX - resizeState.current.startX; // >0 wenn Maus nach rechts
-      const dy = ev.clientY - resizeState.current.startY; // >0 wenn Maus nach unten
-      // Griff oben links: wenn Maus nach rechts/unten bewegt, wird Panel kleiner
-      const newW = clamp(resizeState.current.startW - dx, 300, 800);
-      const newH = clamp(resizeState.current.startH - dy, 360, 900);
-      setWidth(newW);
-      setHeight(newH);
-    };
-    const onUp = () => {
-      resizeState.current = null;
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
-    };
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
-  }
-
-  if (hidden) return null;
+  // Erkennen: aktuell „Warten auf erste Tokens“?
+  const waitingOnAssistant =
+    loading &&
+    messages.length > 0 &&
+    messages[messages.length - 1].role === "assistant" &&
+    (messages[messages.length - 1].content || "").length === 0;
 
   return (
     <>
-      {/* Floating bubble – UNTEN RECHTS */}
+      {/* Floating bubble – unten rechts */}
       <button
         aria-label="AI-Guide öffnen"
         onClick={() => setOpen((v) => !v)}
@@ -184,9 +328,8 @@ export default function ChatWidget(props: { apiBase?: string; suppressOnGuide?: 
           right: 20, bottom: 20,
           width: 56, height: 56,
           borderRadius: 999,
-          background: "var(--sl-color-accent)",
-          color: "white",
-          border: "1px solid var(--sl-color-hairline)",
+          background: "#111", color: "#fff",
+          border: "1px solid #333",
           boxShadow: "0 10px 24px rgba(0,0,0,.18)",
           zIndex: 2147483647,
           display: "grid", placeItems: "center",
@@ -194,18 +337,16 @@ export default function ChatWidget(props: { apiBase?: string; suppressOnGuide?: 
         }}
         title={apiOK === false ? "API nicht erreichbar" : "AI-Guide"}
       >
-        {/* Status-Punkt */}
         <span style={{
           position:"absolute", top:8, right:8, width:8, height:8, borderRadius:99,
-          background: apiOK ? "#12b886" : "#d33"
+          background: apiOK ? "#0a7" : "#b00020"
         }} />
-        {/* Robot-Icon */}
         <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
           <path d="M11 2a1 1 0 1 1 2 0v1h1a2 2 0 0 1 2 2v1h1a3 3 0 0 1 3 3v6a5 5 0 0 1-5 5h-6a5 5 0 0 1-5-5V9a3 3 0 0 1 3-3h1V5a2 2 0 0 1 2-2h1V2Zm-4 7a1 1 0 1 0 0 2h1a1 1 0 1 0 0-2H7Zm9 0h1a1 1 0 1 1 0 2h-1a1 1 0 1 1 0-2ZM8 14a1 1 0 1 0 0 2h8a1 1 0 1 0 0-2H8Z"/>
         </svg>
       </button>
 
-      {/* Panel – UNTEN RECHTS; Resize-Griff OBEN LINKS */}
+      {/* Panel */}
       {open && (
         <div
           role="dialog"
@@ -213,10 +354,11 @@ export default function ChatWidget(props: { apiBase?: string; suppressOnGuide?: 
           style={{
             position: "fixed",
             right: 16, bottom: 84,
-            width, height,
-            background: COLORS.bg,
-            color: COLORS.text,
-            border: `1px solid ${COLORS.hairline}`,
+            width: `min(${w}px, 94vw)`,
+            height: `min(${h}px, 80vh)`,
+            background: theme.bg,
+            color: theme.text,
+            border: `1px solid ${theme.border}`,
             borderRadius: 16,
             boxShadow: "0 16px 56px rgba(0,0,0,.22)",
             zIndex: 9999,
@@ -227,40 +369,51 @@ export default function ChatWidget(props: { apiBase?: string; suppressOnGuide?: 
         >
           {/* Resize-Griff oben links */}
           <div
-            onMouseDown={onResizeStart}
+            onMouseDown={onResizeDown}
             title="Größe ändern"
             style={{
-              position:"absolute", top:8, left:8, width:16, height:16,
-              borderTop: `2px solid ${COLORS.hairline}`,
-              borderLeft:`2px solid ${COLORS.hairline}`,
-              borderTopLeftRadius: 4,
-              cursor:"nwse-resize",
-              zIndex: 2,
+              position: "absolute",
+              left: 8, top: 8,
+              width: 16, height: 16,
+              borderLeft: `2px solid ${theme.border}`,
+              borderTop: `2px solid ${theme.border}`,
+              borderRadius: 4,
+              cursor: "nwse-resize",
+              opacity: .9,
             }}
           />
 
           {/* Header */}
           <div style={{
             padding: "10px 12px",
-            borderBottom: `1px solid ${COLORS.hairline}`,
-            background: COLORS.bgSoft,
+            borderBottom: `1px solid ${theme.border}`,
+            background: theme.headerBg,
             display:"flex", alignItems:"center", gap:10
           }}>
             <strong style={{ fontWeight:700 }}>AI-Guide</strong>
-            <span style={{ fontSize:12, opacity:.8, display:"inline-flex", alignItems:"center", gap:6 }}>
-              <span style={{
-                width:8, height:8, borderRadius:99,
-                background: apiOK ? "#12b886" : "#d33"
-              }} />
+            <span style={{ fontSize:12, opacity:.75 }}>
               {apiOK === null ? "prüfe…" : apiOK ? "verbunden" : "offline"}
             </span>
+            {loading && (
+              <span title="Antwort wird generiert…" style={{ display:"inline-flex", alignItems:"center", gap:6 }}>
+                <Spinner size={16} color={theme.text} />
+              </span>
+            )}
             <button onClick={resetChat}
-              style={{ marginLeft:"auto", fontSize:12, padding:"4px 8px", border:`1px solid ${COLORS.hairline}`, borderRadius:8, background:"transparent", cursor:"pointer" }}>
+              style={{
+                marginLeft:"auto",
+                fontSize:12, padding:"4px 8px",
+                border:`1px solid ${theme.btnBorder}`,
+                borderRadius:8, background: theme.btnBg, cursor:"pointer"
+              }}>
               Reset
             </button>
             <button onClick={() => setOpen(false)}
               aria-label="schließen"
-              style={{ marginLeft:8, width:28, height:28, borderRadius:8, border:`1px solid ${COLORS.hairline}`, background:"transparent", cursor:"pointer" }}>
+              style={{
+                marginLeft:8, width:28, height:28, borderRadius:8,
+                border:`1px solid ${theme.btnBorder}`, background: theme.btnBg, cursor:"pointer"
+              }}>
               ✕
             </button>
           </div>
@@ -276,19 +429,29 @@ export default function ChatWidget(props: { apiBase?: string; suppressOnGuide?: 
             {messages.map((m, idx) => (
               <div key={idx} style={{ justifySelf: m.role === "user" ? "end" : "start", maxWidth:"100%" }}>
                 <div style={{
-                  border: `1px solid ${COLORS.hairline}`,
-                  background: m.role === "user" ? "var(--sl-color-accent)" : COLORS.bg,
-                  color: m.role === "user" ? "white" : COLORS.text,
+                  border: `1px solid ${theme.border}`,
+                  background: m.role === "user" ? "#111" : theme.bg,
+                  color: m.role === "user" ? "#fff" : theme.text,
                   borderRadius: 12,
                   padding: "10px 12px",
                   boxShadow: "0 1px 2px rgba(0,0,0,.04)",
                   whiteSpace: "pre-wrap",
                 }}>
-                  <div style={{ fontSize:12, opacity:.75, marginBottom:4 }}>{m.role === "user" ? "Du" : "AI-Guide"}</div>
-                  {m.content}
+                  <div style={{ fontSize:12, opacity:.65, marginBottom:4 }}>{m.role === "user" ? "Du" : "AI-Guide"}</div>
+                  {m.role === "assistant"
+                    ? (m.content
+                        ? <MD text={m.content} />
+                        : (
+                          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                            <Spinner size={16} color={theme.text} />
+                            <span style={{ opacity:.7, fontSize:13 }}>Antwort wird generiert…</span>
+                          </div>
+                        )
+                      )
+                    : m.content}
                 </div>
                 {m.role === "assistant" && m.citations && m.citations.length > 0 && (
-                  <div style={{ border: `1px solid ${COLORS.hairline}`, borderRadius: 10, padding: 8, marginTop:6 }}>
+                  <div style={{ border: `1px solid ${theme.border}`, borderRadius: 10, padding: 8, marginTop:6 }}>
                     <div style={{ fontWeight: 600, marginBottom: 4, fontSize:13 }}>Quellen</div>
                     <ul style={{ margin: 0, paddingLeft: 18 }}>
                       {m.citations.map((c)=>(
@@ -302,11 +465,27 @@ export default function ChatWidget(props: { apiBase?: string; suppressOnGuide?: 
                 )}
               </div>
             ))}
+            {/* falls aus irgendeinem Grund noch keine Placeholder-Bubble existiert */}
+            {waitingOnAssistant && messages[messages.length - 1]?.role !== "assistant" && (
+              <div style={{ justifySelf: "start", maxWidth:"100%" }}>
+                <div style={{
+                  border: `1px solid ${theme.border}`,
+                  background: theme.bg, color: theme.text,
+                  borderRadius: 12, padding: "10px 12px"
+                }}>
+                  <div style={{ fontSize:12, opacity:.65, marginBottom:4 }}>AI-Guide</div>
+                  <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                    <Spinner size={16} color={theme.text} />
+                    <span style={{ opacity:.7, fontSize:13 }}>Antwort wird generiert…</span>
+                  </div>
+                </div>
+              </div>
+            )}
             <div ref={endRef} />
           </div>
 
           {/* Input */}
-          <div style={{ padding: 10, borderTop: `1px solid ${COLORS.hairline}`, background: COLORS.bg }}>
+          <div style={{ padding: 10, borderTop: `1px solid ${theme.border}` }}>
             <textarea
               ref={taRef}
               value={q}
@@ -326,42 +505,37 @@ export default function ChatWidget(props: { apiBase?: string; suppressOnGuide?: 
                 width: "100%",
                 padding: 10,
                 borderRadius: 10,
-                border: `1px solid ${COLORS.hairline}`,
+                border: `1px solid ${theme.border}`,
                 resize: "none",
                 lineHeight: "1.4",
-                maxHeight: MAX_TA_HEIGHT,
+                maxHeight: 180,
                 overflowY: "auto",
                 marginBottom: 8,
-                background: COLORS.bg,
-                color: COLORS.text,
+                background: theme.bg, color: theme.text,
               }}
             />
-            <div style={{ display:"flex", gap:8, justifyContent:"space-between", alignItems:"center" }}>
+            <div style={{ display:"flex", gap:8, justifyContent:"flex-end" }}>
               <button
                 onClick={send}
                 disabled={loading || !q.trim() || apiOK === false}
                 style={{
                   padding:"8px 12px",
                   borderRadius:10,
-                  border:`1px solid ${COLORS.hairline}`,
-                  background:"var(--sl-color-accent)",
-                  color:"white",
-                  cursor:"pointer"
+                  border:"1px solid #333",
+                  background:"#111",
+                  color:"#fff",
+                  cursor:"pointer",
+                  display:"inline-flex",
+                  alignItems:"center",
+                  gap:8
                 }}
               >
-                {loading ? "Senden…" : "Senden"}
+                {loading ? (<><Spinner size={16} color="#fff" /> <span>Senden…</span></>) : "Senden"}
               </button>
-              <span style={{ fontSize: 11, opacity:.6 }}>
-                {apiOK === false ? "API offline" : " "}
-              </span>
             </div>
           </div>
         </div>
       )}
     </>
   );
-}
-
-function clamp(n: number, min: number, max: number) {
-  return Math.max(min, Math.min(max, n));
 }
