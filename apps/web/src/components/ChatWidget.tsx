@@ -25,6 +25,7 @@ function Spinner({ size = 16, color = "currentColor" }: { size?: number; color?:
   );
 }
 
+/** Farbtokens aus Starlight (Dark/Light) */
 function useThemeVars() {
   const get = (v: string, fallback: string) =>
     typeof window !== "undefined"
@@ -41,6 +42,7 @@ function useThemeVars() {
   };
 }
 
+/** sicheres Markdown */
 function renderMarkdown(md: string): string {
   const html = marked.parse(md, { breaks: true }) as string;
   return DOMPurify.sanitize(html, {
@@ -52,7 +54,7 @@ function renderMarkdown(md: string): string {
   });
 }
 
-/** SSE-Client: liefert Controller + Promise zurück */
+/** SSE-Client mit Fallback: echte SSE → streamen; JSON-Array → komplett lesen & nachspielen */
 function createSSEStream(
   url: string,
   body: any,
@@ -67,12 +69,47 @@ function createSSEStream(
       body: JSON.stringify(body),
       signal: controller.signal,
     });
-    if (!r.ok || !r.body) throw new Error(`HTTP ${r.status} ${r.statusText}`);
+    if (!r.ok) throw new Error(`HTTP ${r.status} ${r.statusText}`);
 
+    const ct = (r.headers.get("content-type") || "").toLowerCase();
+
+    // Fallback: Server liefert JSON-Array (historischer Bug)
+    if (!ct.includes("text/event-stream")) {
+      const text = await r.text();
+      try {
+        const arr = JSON.parse(text);
+        if (Array.isArray(arr)) {
+          for (const s of arr) {
+            if (typeof s !== "string") continue;
+            // ein Eintrag entspricht einem kompletten SSE-Block
+            const block = s.replace(/\r\n/g, "\n").trimEnd();
+            let ev = "message";
+            const dataLines: string[] = [];
+            for (const line of block.split("\n")) {
+              if (line.startsWith("event:")) ev = line.slice(6).trim().toLowerCase();
+              else if (line.startsWith("data:")) dataLines.push(line.slice(5).trim());
+            }
+            if (dataLines.length) {
+              const dataStr = dataLines.join("\n");
+              try { onEvent(ev, JSON.parse(dataStr)); }
+              catch { onEvent(ev, { raw: dataStr }); }
+            }
+          }
+          // sicherstellen, dass UI beendet
+          onEvent("done", {});
+          return;
+        }
+      } catch {
+        // fällt unten in den normalen Parser zurück (wird dann nichts finden)
+      }
+      throw new Error("Unerwartetes Antwortformat (kein event-stream und kein JSON-Array).");
+    }
+
+    // ECHTES SSE: stream-parsen
+    if (!r.body) throw new Error("Fehlender Response-Body");
     const reader = r.body.getReader();
     const decoder = new TextDecoder();
     let buf = "";
-
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
@@ -98,6 +135,9 @@ function createSSEStream(
         }
       }
     }
+
+    // Falls kein "done" kam, trotzdem abschließen
+    onEvent("done", {});
   })();
 
   return { controller, promise };
@@ -216,17 +256,13 @@ export default function ChatWidget(props: { apiBase?: string; suppressOnGuide?: 
     window.removeEventListener("mouseup", onResizeUp);
   }
 
-  const MD = ({ text }: { text: string }) => (
-    <div className="ai-md" dangerouslySetInnerHTML={{ __html: renderMarkdown(text) }} style={{ lineHeight: 1.5 }} />
-  );
-
   async function send() {
     if (!q.trim() || loading || apiOK === false) return;
     setLoading(true);
 
     // optimistic: user + leere assistant-Bubble
     setMessages((prev) => [...prev, { role: "user", content: q }, { role: "assistant", content: "" }]);
-    const assistantIdx = messages.length + 1; // der eben angehängte Assistant
+    const assistantIdx = messages.length + 1; // Index der neu angehängten Assistant-Bubble
 
     const body: any = { question: q, top_k: 5 };
     if (conversationId) body.conversation_id = conversationId;
@@ -235,18 +271,20 @@ export default function ChatWidget(props: { apiBase?: string; suppressOnGuide?: 
 
     // Watchdogs
     let gotFirstToken = false;
+    let finished = false;
     const tokenTimeout = window.setTimeout(() => {
-      if (!gotFirstToken) {
-        // Stream abbrechen und auf Non-Stream fallen
-        abortAndFallback();
-      }
+      if (!gotFirstToken) abortAndFallback();
     }, 6000);
     const hardTimeout = window.setTimeout(() => {
-      setLoading(false);
+      if (!finished) {
+        // als letzte Rückfallebene abbrechen und Fallback nutzen
+        abortAndFallback();
+      }
     }, 30000);
 
     const { controller, promise } = createSSEStream(streamURL, body, (ev, data) => {
       if (ev === "meta") {
+        gotFirstToken = true; // meta kam → Verbindung lebt
         if (data?.conversation_id && data.conversation_id !== conversationId) {
           setConversationId(data.conversation_id);
         }
@@ -273,6 +311,9 @@ export default function ChatWidget(props: { apiBase?: string; suppressOnGuide?: 
           return next;
         });
       } else if (ev === "done") {
+        finished = true;
+        window.clearTimeout(tokenTimeout);
+        window.clearTimeout(hardTimeout);
         setLoading(false);
       }
     });
@@ -310,6 +351,9 @@ export default function ChatWidget(props: { apiBase?: string; suppressOnGuide?: 
           return next;
         });
       } finally {
+        finished = true;
+        window.clearTimeout(tokenTimeout);
+        window.clearTimeout(hardTimeout);
         setLoading(false);
       }
     }
@@ -320,8 +364,6 @@ export default function ChatWidget(props: { apiBase?: string; suppressOnGuide?: 
       // Netz-/Streamfehler → Fallback
       await abortAndFallback();
     } finally {
-      window.clearTimeout(tokenTimeout);
-      window.clearTimeout(hardTimeout);
       setQ("");
       setTimeout(() => taRef.current?.focus(), 0);
     }
@@ -332,13 +374,6 @@ export default function ChatWidget(props: { apiBase?: string; suppressOnGuide?: 
     setConversationId(null);
     setQ("");
   }
-
-  // Spinner-Zustand für die letzte (leere) Assistant-Bubble
-  const waitingOnAssistant =
-    loading &&
-    messages.length > 0 &&
-    messages[messages.length - 1].role === "assistant" &&
-    (messages[messages.length - 1].content || "").length === 0;
 
   return (
     <>
@@ -488,21 +523,6 @@ export default function ChatWidget(props: { apiBase?: string; suppressOnGuide?: 
                 )}
               </div>
             ))}
-            {waitingOnAssistant && (
-              <div style={{ justifySelf: "start", maxWidth:"100%" }}>
-                <div style={{
-                  border: `1px solid ${theme.border}`,
-                  background: theme.bg, color: theme.text,
-                  borderRadius: 12, padding: "10px 12px"
-                }}>
-                  <div style={{ fontSize:12, opacity:.65, marginBottom:4 }}>AI-Guide</div>
-                  <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                    <Spinner size={16} color={theme.text} />
-                    <span style={{ opacity:.7, fontSize:13 }}>Antwort wird generiert…</span>
-                  </div>
-                </div>
-              </div>
-            )}
             <div ref={endRef} />
           </div>
 
