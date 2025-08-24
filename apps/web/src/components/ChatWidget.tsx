@@ -1,3 +1,4 @@
+// apps/web/src/components/ChatWidget.tsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
 type Citation = { id: string; title?: string; url?: string | null; score?: number };
@@ -10,15 +11,14 @@ export default function ChatWidget(props: { apiBase?: string; suppressOnGuide?: 
   const [open, setOpen] = useState(false);
   const [hidden, setHidden] = useState(false);
 
-  // API & Chat-State
+  // API & Chat
   const [apiOK, setApiOK] = useState<boolean | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [q, setQ] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Panel-Geometrie (oben links unter Header)
-  const [panelTop, setPanelTop] = useState<number>(72);
+  // Panelgröße (persistiert) – unten rechts verankert
   const [width, setWidth] = useState<number>(380);
   const [height, setHeight] = useState<number>(520);
 
@@ -26,15 +26,15 @@ export default function ChatWidget(props: { apiBase?: string; suppressOnGuide?: 
   const endRef = useRef<HTMLDivElement | null>(null);
   const resizeState = useRef<{ startX: number; startY: number; startW: number; startH: number; active: boolean } | null>(null);
 
-  // Farben aus Starlight-Tokens
+  // Starlight-Farben (funktionieren in dark/light)
   const COLORS = {
-    bg:        "var(--sl-color-bg)",
-    bgSoft:    "var(--sl-color-bg-soft)",
-    text:      "var(--sl-color-text)",
-    hairline:  "var(--sl-color-hairline)",
+    bg:       "var(--sl-color-bg)",
+    bgSoft:   "var(--sl-color-bg-soft)",
+    text:     "var(--sl-color-text)",
+    hairline: "var(--sl-color-hairline)",
   } as const;
 
-  // Bubble auf /guide optional ausblenden (dort gibt's die große Seite)
+  // Bubble auf /guide optional ausblenden
   useEffect(() => {
     if (props.suppressOnGuide === false) return;
     if (typeof window !== "undefined") setHidden(window.location.pathname.startsWith("/guide"));
@@ -43,28 +43,14 @@ export default function ChatWidget(props: { apiBase?: string; suppressOnGuide?: 
   // API-Basis
   const apiBase = useMemo(() => {
     if (props.apiBase && props.apiBase.trim()) return props.apiBase;
-    // @ts-ignore
+    // @ts-ignore – PUBLIC_ Variablen werden beim Build ersetzt
     const envBase = (import.meta as any)?.env?.PUBLIC_API_BASE as string | undefined;
     if (envBase && envBase.trim()) return envBase;
     if (typeof window !== "undefined") return `${window.location.protocol}//${window.location.hostname}:9000`;
     return "http://127.0.0.1:9000";
   }, [props.apiBase]);
 
-  // Headerhöhe messen → Panel direkt drunter (oben links)
-  useEffect(() => {
-    function computeTop() {
-      const header =
-        (document.querySelector('header[role="banner"]') as HTMLElement) ||
-        (document.querySelector("header") as HTMLElement) || null;
-      const h = header?.offsetHeight ?? 64;
-      setPanelTop(h + 8);
-    }
-    computeTop();
-    window.addEventListener("resize", computeTop);
-    return () => window.removeEventListener("resize", computeTop);
-  }, []);
-
-  // Größe aus/in LocalStorage
+  // Größe laden/speichern
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
@@ -78,12 +64,10 @@ export default function ChatWidget(props: { apiBase?: string; suppressOnGuide?: 
   }, []);
   useEffect(() => {
     if (typeof window === "undefined") return;
-    try {
-      window.localStorage.setItem(LS_SIZE, JSON.stringify({ w: width, h: height }));
-    } catch {}
+    try { window.localStorage.setItem(LS_SIZE, JSON.stringify({ w: width, h: height })); } catch {}
   }, [width, height]);
 
-  // Konversation-ID aus/in LocalStorage (Anzeige entfernt)
+  // Konversation-ID (Anzeige entfernt, aber für Verlauf behalten)
   useEffect(() => {
     if (typeof window !== "undefined") {
       const cid = window.localStorage.getItem(LS_CID);
@@ -137,7 +121,7 @@ export default function ChatWidget(props: { apiBase?: string; suppressOnGuide?: 
       const body: any = { question: q, top_k: 5 };
       if (conversationId) body.conversation_id = conversationId;
 
-      // Optimistic user bubble
+      // optimistic
       setMessages((prev) => [...prev, { role: "user", content: q }]);
 
       const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -164,94 +148,124 @@ export default function ChatWidget(props: { apiBase?: string; suppressOnGuide?: 
     setQ("");
   }
 
-  // Resize-Handler (unten rechts)
-  function onResizeStart(e: React.MouseEvent) {
+  // Resize-Handler (GRIFF OBEN LINKS; Panel unten-rechts bleibt fix)
+  function onResizeStart(e: React.MouseEvent<HTMLDivElement>) {
     e.preventDefault();
     resizeState.current = { startX: e.clientX, startY: e.clientY, startW: width, startH: height, active: true };
-    window.addEventListener("mousemove", onMouseMove);
-    window.addEventListener("mouseup", onMouseUp);
-  }
-  function onMouseMove(e: MouseEvent) {
-    const st = resizeState.current; if (!st || !st.active) return;
-    const dx = e.clientX - st.startX;
-    const dy = e.clientY - st.startY;
-    setWidth(Math.max(320, Math.min(720, st.startW + dx)));
-    setHeight(Math.max(360, Math.min(800, st.startH + dy)));
-  }
-  function onMouseUp() {
-    const st = resizeState.current; if (st) st.active = false;
-    window.removeEventListener("mousemove", onMouseMove);
-    window.removeEventListener("mouseup", onMouseUp);
+    const onMove = (ev: MouseEvent) => {
+      if (!resizeState.current?.active) return;
+      const dx = ev.clientX - resizeState.current.startX; // >0 wenn Maus nach rechts
+      const dy = ev.clientY - resizeState.current.startY; // >0 wenn Maus nach unten
+      // Griff oben links: wenn Maus nach rechts/unten bewegt, wird Panel kleiner
+      const newW = clamp(resizeState.current.startW - dx, 300, 800);
+      const newH = clamp(resizeState.current.startH - dy, 360, 900);
+      setWidth(newW);
+      setHeight(newH);
+    };
+    const onUp = () => {
+      resizeState.current = null;
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
   }
 
   if (hidden) return null;
 
   return (
     <>
-      {/* Floating Bubble (unten rechts) */}
+      {/* Floating bubble – UNTEN RECHTS */}
       <button
         aria-label="AI-Guide öffnen"
         onClick={() => setOpen((v) => !v)}
         style={{
-          position: "fixed", right: 20, bottom: 20, width: 56, height: 56,
-          borderRadius: 999, background: "var(--sl-color-text)", color: "var(--sl-color-bg)",
-          border: `1px solid ${COLORS.hairline}`, boxShadow: "0 10px 24px rgba(0,0,0,.18)",
-          zIndex: 2147483647, display: "grid", placeItems: "center", cursor: "pointer",
+          position: "fixed",
+          right: 20, bottom: 20,
+          width: 56, height: 56,
+          borderRadius: 999,
+          background: "var(--sl-color-accent)",
+          color: "white",
+          border: "1px solid var(--sl-color-hairline)",
+          boxShadow: "0 10px 24px rgba(0,0,0,.18)",
+          zIndex: 2147483647,
+          display: "grid", placeItems: "center",
+          cursor: "pointer",
         }}
         title={apiOK === false ? "API nicht erreichbar" : "AI-Guide"}
       >
+        {/* Status-Punkt */}
         <span style={{
           position:"absolute", top:8, right:8, width:8, height:8, borderRadius:99,
-          background: apiOK ? "#10b981" : "#ef4444"
-        }}/>
+          background: apiOK ? "#12b886" : "#d33"
+        }} />
+        {/* Robot-Icon */}
         <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
           <path d="M11 2a1 1 0 1 1 2 0v1h1a2 2 0 0 1 2 2v1h1a3 3 0 0 1 3 3v6a5 5 0 0 1-5 5h-6a5 5 0 0 1-5-5V9a3 3 0 0 1 3-3h1V5a2 2 0 0 1 2-2h1V2Zm-4 7a1 1 0 1 0 0 2h1a1 1 0 1 0 0-2H7Zm9 0h1a1 1 0 1 1 0 2h-1a1 1 0 1 1 0-2ZM8 14a1 1 0 1 0 0 2h8a1 1 0 1 0 0-2H8Z"/>
         </svg>
       </button>
 
-      {/* Panel (oben links direkt unter Header) */}
+      {/* Panel – UNTEN RECHTS; Resize-Griff OBEN LINKS */}
       {open && (
         <div
-          role="dialog" aria-label="AI-Guide"
+          role="dialog"
+          aria-label="AI-Guide"
           style={{
             position: "fixed",
-            left: 16, top: panelTop,
+            right: 16, bottom: 84,
             width, height,
-            background: COLORS.bg, color: COLORS.text,
+            background: COLORS.bg,
+            color: COLORS.text,
             border: `1px solid ${COLORS.hairline}`,
             borderRadius: 16,
             boxShadow: "0 16px 56px rgba(0,0,0,.22)",
             zIndex: 9999,
-            display: "flex", flexDirection: "column", overflow: "hidden",
+            display: "flex",
+            flexDirection: "column",
+            overflow: "hidden",
           }}
         >
+          {/* Resize-Griff oben links */}
+          <div
+            onMouseDown={onResizeStart}
+            title="Größe ändern"
+            style={{
+              position:"absolute", top:8, left:8, width:16, height:16,
+              borderTop: `2px solid ${COLORS.hairline}`,
+              borderLeft:`2px solid ${COLORS.hairline}`,
+              borderTopLeftRadius: 4,
+              cursor:"nwse-resize",
+              zIndex: 2,
+            }}
+          />
+
           {/* Header */}
           <div style={{
             padding: "10px 12px",
-            background: COLORS.bgSoft, color: COLORS.text,
             borderBottom: `1px solid ${COLORS.hairline}`,
-            display:"flex", alignItems:"center", gap:8
+            background: COLORS.bgSoft,
+            display:"flex", alignItems:"center", gap:10
           }}>
             <strong style={{ fontWeight:700 }}>AI-Guide</strong>
-            <span style={{ fontSize:12, opacity:.75 }}>
+            <span style={{ fontSize:12, opacity:.8, display:"inline-flex", alignItems:"center", gap:6 }}>
+              <span style={{
+                width:8, height:8, borderRadius:99,
+                background: apiOK ? "#12b886" : "#d33"
+              }} />
               {apiOK === null ? "prüfe…" : apiOK ? "verbunden" : "offline"}
             </span>
-            <div style={{ marginLeft:"auto", display:"flex", gap:8 }}>
-              <button
-                onClick={resetChat}
-                style={{ fontSize:12, padding:"4px 8px", border:`1px solid ${COLORS.hairline}`, borderRadius:8, background: COLORS.bg, color: COLORS.text, cursor:"pointer" }}>
-                Reset
-              </button>
-              <button
-                onClick={() => setOpen(false)}
-                aria-label="schließen"
-                style={{ width:28, height:28, borderRadius:8, border:`1px solid ${COLORS.hairline}`, background: COLORS.bg, color: COLORS.text, cursor:"pointer" }}>
-                ✕
-              </button>
-            </div>
+            <button onClick={resetChat}
+              style={{ marginLeft:"auto", fontSize:12, padding:"4px 8px", border:`1px solid ${COLORS.hairline}`, borderRadius:8, background:"transparent", cursor:"pointer" }}>
+              Reset
+            </button>
+            <button onClick={() => setOpen(false)}
+              aria-label="schließen"
+              style={{ marginLeft:8, width:28, height:28, borderRadius:8, border:`1px solid ${COLORS.hairline}`, background:"transparent", cursor:"pointer" }}>
+              ✕
+            </button>
           </div>
 
-          {/* Nachrichten */}
+          {/* Messages */}
           <div style={{ flex: 1, overflow: "auto", padding: 12, display:"grid", gap:10 }}>
             {messages.length === 0 && (
               <div style={{ fontSize:13, opacity:.75 }}>
@@ -263,14 +277,14 @@ export default function ChatWidget(props: { apiBase?: string; suppressOnGuide?: 
               <div key={idx} style={{ justifySelf: m.role === "user" ? "end" : "start", maxWidth:"100%" }}>
                 <div style={{
                   border: `1px solid ${COLORS.hairline}`,
-                  background: m.role === "user" ? "var(--sl-color-text)" : COLORS.bg,
-                  color:      m.role === "user" ? "var(--sl-color-bg)"   : COLORS.text,
+                  background: m.role === "user" ? "var(--sl-color-accent)" : COLORS.bg,
+                  color: m.role === "user" ? "white" : COLORS.text,
                   borderRadius: 12,
                   padding: "10px 12px",
                   boxShadow: "0 1px 2px rgba(0,0,0,.04)",
                   whiteSpace: "pre-wrap",
                 }}>
-                  <div style={{ fontSize:12, opacity:.65, marginBottom:4 }}>{m.role === "user" ? "Du" : "AI-Guide"}</div>
+                  <div style={{ fontSize:12, opacity:.75, marginBottom:4 }}>{m.role === "user" ? "Du" : "AI-Guide"}</div>
                   {m.content}
                 </div>
                 {m.role === "assistant" && m.citations && m.citations.length > 0 && (
@@ -279,14 +293,8 @@ export default function ChatWidget(props: { apiBase?: string; suppressOnGuide?: 
                     <ul style={{ margin: 0, paddingLeft: 18 }}>
                       {m.citations.map((c)=>(
                         <li key={c.id} style={{ fontSize: 12 }}>
-                          {c.title || "(ohne Titel)"}{" "}
-                          {typeof c.score === "number" && <span style={{ opacity: .6 }}>· {c.score.toFixed(3)}</span>}
-                          {c.url ? (
-                            <>
-                              {" "}
-                              – <a href={c.url} target="_blank" rel="noreferrer">{c.url}</a>
-                            </>
-                          ) : null}
+                          {c.title || "(ohne Titel)"} {typeof c.score==="number" && <span style={{ opacity: .6 }}>· {c.score.toFixed(3)}</span>}
+                          {c.url && <> – <a href={c.url} target="_blank" rel="noreferrer">{c.url}</a></>}
                         </li>
                       ))}
                     </ul>
@@ -306,46 +314,54 @@ export default function ChatWidget(props: { apiBase?: string; suppressOnGuide?: 
               onInput={autoSizeTA}
               onFocus={autoSizeTA}
               onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  send();
+                }
                 if (e.key === "Escape") setOpen(false);
               }}
               placeholder="Frage stellen… (Enter = senden, Shift+Enter = Zeilenumbruch)"
               rows={1}
               style={{
-                width: "100%", padding: 10, borderRadius: 10, resize: "none",
+                width: "100%",
+                padding: 10,
+                borderRadius: 10,
                 border: `1px solid ${COLORS.hairline}`,
-                lineHeight: "1.4", maxHeight: 180, overflowY: "auto", marginBottom: 8,
-                background: COLORS.bg, color: COLORS.text,
+                resize: "none",
+                lineHeight: "1.4",
+                maxHeight: MAX_TA_HEIGHT,
+                overflowY: "auto",
+                marginBottom: 8,
+                background: COLORS.bg,
+                color: COLORS.text,
               }}
             />
-            <div style={{ display:"flex", justifyContent:"space-between" }}>
+            <div style={{ display:"flex", gap:8, justifyContent:"space-between", alignItems:"center" }}>
               <button
                 onClick={send}
                 disabled={loading || !q.trim() || apiOK === false}
                 style={{
-                  padding:"8px 12px", borderRadius:10,
+                  padding:"8px 12px",
+                  borderRadius:10,
                   border:`1px solid ${COLORS.hairline}`,
-                  background:"var(--sl-color-text)", color:"var(--sl-color-bg)",
+                  background:"var(--sl-color-accent)",
+                  color:"white",
                   cursor:"pointer"
                 }}
               >
                 {loading ? "Senden…" : "Senden"}
               </button>
+              <span style={{ fontSize: 11, opacity:.6 }}>
+                {apiOK === false ? "API offline" : " "}
+              </span>
             </div>
           </div>
-
-          {/* Resize-Handle (unten rechts) */}
-          <div
-            onMouseDown={onResizeStart}
-            title="Größe ändern"
-            style={{
-              position:"absolute", right:6, bottom:6, width:16, height:16, cursor:"nwse-resize",
-              borderRight:`2px solid ${COLORS.hairline}`, borderBottom:`2px solid ${COLORS.hairline}`, borderRadius:2,
-              opacity:.6
-            }}
-          />
         </div>
       )}
     </>
   );
+}
+
+function clamp(n: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, n));
 }
