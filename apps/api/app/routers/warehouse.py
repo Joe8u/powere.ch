@@ -48,27 +48,32 @@ def _list_columns_for_parquet(con: duckdb.DuckDBPyConnection, path: str) -> list
 
 
 def _select_list_or_all(path_pattern: str, columns: Optional[str]) -> str:
-    """
-    Validiert eine optionale Komma-Liste von Spalten gegen dem Schema des Parquet-Datasets.
-    """
     if not columns:
         return "*"
-    requested = [c.strip() for c in columns.split(",") if c.strip()]
-    if not requested:
+    requested_raw = [c.strip() for c in columns.split(",") if c.strip()]
+    if not requested_raw:
         return "*"
 
     con = _connect()
     try:
-        valid = set(_list_columns_for_parquet(con, path_pattern))
+        valid_cols = _list_columns_for_parquet(con, path_pattern)  # e.g. ["Respondent_ID","Age","Gender",...]
     finally:
         con.close()
 
-    unknown = [c for c in requested if c not in valid]
+    # case-insensitive lookup
+    by_lower = {c.lower(): c for c in valid_cols}
+    resolved: list[str] = []
+    unknown: list[str] = []
+    for name in requested_raw:
+        key = name.lower()
+        if key in by_lower:
+            resolved.append(by_lower[key])   # return actual cased name
+        else:
+            unknown.append(name)
+
     if unknown:
         raise HTTPException(status_code=400, detail=f"Unknown column(s): {unknown}")
-
-    # sicher, weil wir nur verifizierte Namen durchlassen
-    return ", ".join(requested)
+    return ", ".join(resolved)
 
 
 # ----------------------------- Endpoints -----------------------------
@@ -220,5 +225,13 @@ def get_survey_wide(
     try:
         cur = con.execute(sql, params)
         return _rows(cur)
+    finally:
+        con.close()
+
+@router.get("/survey/wide/columns")
+def get_survey_wide_columns() -> dict:
+    con = _connect()
+    try:
+        return {"columns": _list_columns_for_parquet(con, SURVEY_WIDE)}
     finally:
         con.close()
