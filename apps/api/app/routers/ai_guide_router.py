@@ -7,6 +7,7 @@ from fastapi import APIRouter, Body, HTTPException, Query
 from pydantic import BaseModel
 from qdrant_client.http.models import Batch
 from openai.types.chat import ChatCompletionMessageParam
+import itertools, asyncio
 
 import json
 from fastapi.responses import StreamingResponse

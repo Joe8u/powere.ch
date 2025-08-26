@@ -10,7 +10,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY apps/api/app ./app
 
 # 3) API-Code + ai_guide
-COPY ai_guide ./ai_guide
+#COPY ai_guide ./ai_guide
 
 # 4) Steps-Code (für Code-Karten in der Knowledge Base)
 COPY steps ./steps
