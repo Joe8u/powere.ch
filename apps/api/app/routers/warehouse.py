@@ -26,10 +26,10 @@ def _connect() -> duckdb.DuckDBPyConnection:
 def _rows(cur) -> List[dict[str, Any]]:
     """
     Wandelt das aktuelle Result-Set (falls vorhanden) in eine Liste von Dicts um.
+    Laut DB-API kann cursor.description None sein, wenn kein Result-Set vorliegt.
     """
     desc: Sequence[Sequence[Any]] | None = cur.description
     if desc is None:
-        # PEP 249: description ist None bei Statements ohne Result-Set
         return []
     cols = [str(d[0]) for d in desc]
     data = cur.fetchall() or []
@@ -38,7 +38,6 @@ def _rows(cur) -> List[dict[str, Any]]:
 def _list_columns_for_parquet(con: duckdb.DuckDBPyConnection, path: str) -> list[str]:
     """
     Liefert Spaltennamen eines Parquet-Files (ohne Zeilen zu laden).
-    Nutzt DuckDBs DB-API-Cursor; description kann laut DB-API None sein → guard.
     """
     cur = con.execute("SELECT * FROM parquet_scan(?) LIMIT 0", [path])
     desc = cur.description
@@ -46,34 +45,63 @@ def _list_columns_for_parquet(con: duckdb.DuckDBPyConnection, path: str) -> list
         return []
     return [str(d[0]) for d in desc]
 
-
 def _select_list_or_all(path_pattern: str, columns: Optional[str]) -> str:
+    """
+    Validiert eine optionale Komma-Liste von Spalten gegen das Schema des Parquet-Datasets.
+    """
     if not columns:
         return "*"
-    requested_raw = [c.strip() for c in columns.split(",") if c.strip()]
-    if not requested_raw:
+    requested = [c.strip() for c in columns.split(",") if c.strip()]
+    if not requested:
         return "*"
 
     con = _connect()
     try:
-        valid_cols = _list_columns_for_parquet(con, path_pattern)  # e.g. ["Respondent_ID","Age","Gender",...]
+        valid = set(_list_columns_for_parquet(con, path_pattern))
     finally:
         con.close()
 
-    # case-insensitive lookup
-    by_lower = {c.lower(): c for c in valid_cols}
-    resolved: list[str] = []
-    unknown: list[str] = []
-    for name in requested_raw:
-        key = name.lower()
-        if key in by_lower:
-            resolved.append(by_lower[key])   # return actual cased name
+    unknown = [c for c in requested if c not in valid]
+    if unknown:
+        raise HTTPException(status_code=400, detail=f"Unknown column(s): {unknown}")
+
+    # sicher, weil wir nur verifizierte Namen durchlassen
+    return ", ".join(requested)
+
+# Aliases für das Survey-Wide Parquet (freundliche Kurz-Spaltennamen)
+SURVEY_ALIASES = {
+    "age":    "try_cast(nullif(question_1_age__age, '') as integer)",
+    "gender": "question_2_gender__gender",
+}
+
+def _select_with_aliases(path_pattern: str, columns: Optional[str], aliases: dict[str, str]) -> str:
+    """
+    Wie _select_list_or_all, aber unterstützt Aliases -> erzeugt "expr AS alias".
+    """
+    if not columns:
+        return "*"
+    requested = [c.strip() for c in columns.split(",") if c.strip()]
+    if not requested:
+        return "*"
+
+    con = _connect()
+    try:
+        valid = set(_list_columns_for_parquet(con, path_pattern))
+    finally:
+        con.close()
+
+    parts, unknown = [], []
+    for c in requested:
+        if c in aliases:
+            parts.append(f"{aliases[c]} AS {c}")
+        elif c in valid:
+            parts.append(c)
         else:
-            unknown.append(name)
+            unknown.append(c)
 
     if unknown:
         raise HTTPException(status_code=400, detail=f"Unknown column(s): {unknown}")
-    return ", ".join(resolved)
+    return ", ".join(parts)
 
 
 # ----------------------------- Endpoints -----------------------------
@@ -161,7 +189,6 @@ def get_tertiary_regulation(
             cur = con.execute(sql, params)
             return _rows(cur)
 
-        # Aggregiert: gewichteter Preis über Summe der abgerufenen Mengen
         ts_expr = "date_trunc('hour', timestamp)" if agg == "hour" else "date_trunc('day', timestamp)"
         sql = (
             "WITH base AS ("
@@ -194,28 +221,31 @@ def get_survey_wide(
     offset: int = Query(0, ge=0),
 ) -> list[dict]:
     """
-    Weites Survey-Layout (eine Zeile pro respondent_id). Optional:
-    - Spaltenauswahl: columns=respondent_id,age,gender
-    - Filter: gender (case-insensitive), min_age/max_age
+    Weites Survey-Layout. Unterstützte Shortcuts:
+      - columns=respondent_id,age,gender
+      - Filter: gender, min_age, max_age
     """
-    select_list = _select_list_or_all(SURVEY_WIDE, columns)
+    select_list = _select_with_aliases(SURVEY_WIDE, columns, SURVEY_ALIASES)
+
+    age_expr    = SURVEY_ALIASES["age"]
+    gender_expr = SURVEY_ALIASES["gender"]
 
     where: list[str] = []
     params: list[object] = []
     if gender:
-        where.append("lower(gender) = lower(?)")
+        where.append(f"lower({gender_expr}) = lower(?)")
         params.append(gender)
     if min_age is not None:
-        where.append("age >= ?")
+        where.append(f"{age_expr} >= ?")
         params.append(min_age)
     if max_age is not None:
-        where.append("age <= ?")
+        where.append(f"{age_expr} <= ?")
         params.append(max_age)
 
     where_sql = f"WHERE {' AND '.join(where)}" if where else ""
     sql = (
-        f"SELECT {select_list} "
-        f"FROM parquet_scan('{SURVEY_WIDE}') "
+        "WITH base AS (SELECT * FROM parquet_scan(?)) "
+        f"SELECT {select_list} FROM base "
         f"{where_sql} "
         "ORDER BY respondent_id "
         f"LIMIT {int(limit)} OFFSET {int(offset)}"
@@ -223,10 +253,11 @@ def get_survey_wide(
 
     con = _connect()
     try:
-        cur = con.execute(sql, params)
+        cur = con.execute(sql, [SURVEY_WIDE] + params)
         return _rows(cur)
     finally:
         con.close()
+
 
 @router.get("/survey/wide/columns")
 def get_survey_wide_columns() -> dict:
