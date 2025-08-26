@@ -25,7 +25,7 @@ for p in sorted(files):
   if p.endswith(".csv"): continue
   try:
     with open(p,"r",encoding="utf-8") as f: content=f.read()
-  except Exception: 
+  except Exception:
     continue
   docs.append({"id":p,"title":p,"url":None,"content":content})
 req=urllib.request.Request(api+"/v1/ingest", data=json.dumps(docs).encode(), headers={"Content-Type":"application/json"})

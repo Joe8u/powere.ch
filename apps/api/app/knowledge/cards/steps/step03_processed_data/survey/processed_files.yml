@@ -3,7 +3,7 @@ doc_type: "doc"
 title: "Survey – Verarbeitete Dateien (Q1–Q15)"
 lang: "de"
 body: |
-  **Pfad (primär):** `data/survey/processed/*.csv`  
+  **Pfad (primär):** `data/survey/processed/*.csv`
   **Quelle:** Step-02 Preprocess-Skripte (je Frage). IDs sind bereinigt (String, keine `.0`-Artefakte).
 
   • `question_1_age.csv`

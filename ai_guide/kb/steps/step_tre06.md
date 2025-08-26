@@ -1,7 +1,7 @@
 # Step tre06 — Netzsicht: verschiebbare Energie
 
 ## Ziele
-- Maximale verschiebbare Energie je Event/Tag: 
+- Maximale verschiebbare Energie je Event/Tag:
 window_limit_mwh = sum(jasm_mwh_window) * finale_teilnahmequote
 hh_limit_mwh     = households_in_scope * finale_teilnahmequote * event_kwh_cap / 1000
 shiftable_energy_mwh = min(window_limit_mwh, hh_limit_mwh)
