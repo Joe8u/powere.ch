@@ -1,9 +1,20 @@
-# .pre-commit-config.yaml
 repos:
 - repo: https://github.com/pre-commit/pre-commit-hooks
   rev: v4.6.0
   hooks:
     - id: check-added-large-files
-      args: ["--maxkb=99999"]  # blockt versehentlich >95MB
+      args: ["--maxkb=99999"]
+
     - id: end-of-file-fixer
+      exclude: |
+        (?x)^(
+          steps/step06_sozio_technisches_simulationsmodell/flexibility_potential/figures/.*\.html
+        )$
+
     - id: trailing-whitespace
+      args: ["--markdown-linebreak-ext=md,mdx"]  # bewahrt harte Umbrüche in MD/MDX
+      exclude: |
+        (?x)^(
+          steps/step06_sozio_technisches_simulationsmodell/flexibility_potential/figures/.*\.html|
+          .*\.svg
+        )$
