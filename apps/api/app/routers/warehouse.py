@@ -211,27 +211,26 @@ def get_tertiary_regulation(
         con.close()
 
 
+
 @router.get("/survey/wide")
 def get_survey_wide(
     columns: Optional[str] = Query(None, description="Kommagetrennte Spaltenliste; Standard: *"),
+    respondent_id: Optional[str] = Query(None, description="exakte respondent_id"),
     gender: Optional[str]  = Query(None, description="Filter: exakt (case-insensitive), z.B. 'female'"),
     min_age: Optional[int] = Query(None, ge=0, description="Filter: Mindestalter"),
     max_age: Optional[int] = Query(None, ge=0, description="Filter: Höchstalter"),
     limit: int = Query(1000, ge=1, le=100000),
     offset: int = Query(0, ge=0),
 ) -> list[dict]:
-    """
-    Weites Survey-Layout. Unterstützte Shortcuts:
-      - columns=respondent_id,age,gender
-      - Filter: gender, min_age, max_age
-    """
     select_list = _select_with_aliases(SURVEY_WIDE, columns, SURVEY_ALIASES)
 
     age_expr    = SURVEY_ALIASES["age"]
     gender_expr = SURVEY_ALIASES["gender"]
 
-    where: list[str] = []
-    params: list[object] = []
+    where, params = [], []
+    if respondent_id:
+        where.append("respondent_id = ?")
+        params.append(respondent_id)
     if gender:
         where.append(f"lower({gender_expr}) = lower(?)")
         params.append(gender)
@@ -250,7 +249,6 @@ def get_survey_wide(
         "ORDER BY respondent_id "
         f"LIMIT {int(limit)} OFFSET {int(offset)}"
     )
-
     con = _connect()
     try:
         cur = con.execute(sql, [SURVEY_WIDE] + params)
