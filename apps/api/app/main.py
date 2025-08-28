@@ -57,3 +57,5 @@ def ping():
 
 app.include_router(ai_router, tags=["ai-guide"])
 app.include_router(warehouse.router, tags=["warehouse"]) 
+# Wichtig: warehouse-Router registrieren (hat bereits prefix="/warehouse")
+app.include_router(warehouse.router)
