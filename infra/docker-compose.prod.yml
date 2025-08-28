@@ -28,6 +28,7 @@ services:
       - EMBEDDING_MODEL=${EMBEDDING_MODEL:-text-embedding-3-small}
       - FASTEMBED_MODEL=${FASTEMBED_MODEL:-sentence-transformers/all-MiniLM-L6-v2}
       - DATA_ROOT=/app/data
+      - WAREHOUSE_DATA_ROOT=/app/data
     volumes:
       - /srv/repos/powere.ch/data:/app/data:ro
     depends_on:

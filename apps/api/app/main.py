@@ -7,6 +7,7 @@ import os
 
 from .core import EMBED_BACKEND, EMBED_DIM, QDRANT_COLLECTION, CHAT_MODEL, chat_client
 from app.routers.ai_guide_router import router as ai_router
+from app.routers import warehouse
 
 DEFAULT_ORIGINS = "https://www.powere.ch,https://powere.ch,http://localhost:4321"
 CORS_ORIGINS = [o.strip() for o in os.getenv("API_CORS_ORIGINS", DEFAULT_ORIGINS).split(",") if o.strip()]
