@@ -14,31 +14,17 @@
 ├── .gitignore
 ├── .vscode
 │   └── settings.json
-├── ai_guide
-│   ├── config
-│   │   └── policy.yaml
-│   ├── kb
-│   │   ├── data_catalog.yaml
-│   │   ├── glossary.md
-│   │   ├── metrics.md
-│   │   ├── steps
-│   │   │   ├── step_tre05.md
-│   │   │   └── step_tre06.md
-│   │   └── steps_overview.md
-│   ├── manifests
-│   │   └── steps_manifest.json
-│   ├── README.md
-│   ├── scripts
-│   │   └── index_kb.py
-│   └── server.py
 ├── apps
+│   ├── .DS_Store
 │   ├── .gitignore
 │   ├── api
+│   │   ├── .DS_Store
 │   │   ├── .env
 │   │   ├── .vscode
 │   │   │   └── settings.json
 │   │   ├── app
 │   │   │   ├── __init__.py
+│   │   │   ├── .DS_Store
 │   │   │   ├── core
 │   │   │   │   └── config.py
 │   │   │   ├── core.py
@@ -47,24 +33,136 @@
 │   │   │   │   └── loaders.py
 │   │   │   ├── knowledge
 │   │   │   │   ├── build
+│   │   │   │   │   ├── build_toc.py
+│   │   │   │   │   ├── generate_cards.py
+│   │   │   │   │   └── ingest.py
 │   │   │   │   ├── cards
+│   │   │   │   │   └── steps
+│   │   │   │   │       ├── step01_raw_data
+│   │   │   │   │       │   ├── lastprofile
+│   │   │   │   │       │   │   ├── jasm_household_daily_load_curves.yml
+│   │   │   │   │       │   │   ├── jasm_ownership_of_appliances.yml
+│   │   │   │   │       │   │   └── toc.yml
+│   │   │   │   │       │   ├── regelenergie
+│   │   │   │   │       │   │   ├── swissgrid_mfrr_tre_csv.yml
+│   │   │   │   │       │   │   └── toc.yml
+│   │   │   │   │       │   ├── survey
+│   │   │   │   │       │   │   ├── surveymonkey_export.yml
+│   │   │   │   │       │   │   └── toc.yml
+│   │   │   │   │       │   └── toc.yml
+│   │   │   │   │       ├── step02_preprocessing
+│   │   │   │   │       │   ├── explainers
+│   │   │   │   │       │   │   ├── data_lineage.yml
+│   │   │   │   │       │   │   ├── overview.yml
+│   │   │   │   │       │   │   └── policies_time_units.yml
+│   │   │   │   │       │   ├── lastprofile
+│   │   │   │   │       │   │   ├── code
+│   │   │   │   │       │   │   │   └── precompute_lastprofile_2024.yml
+│   │   │   │   │       │   │   └── toc.yml
+│   │   │   │   │       │   ├── market
+│   │   │   │   │       │   │   └── regelenergie
+│   │   │   │   │       │   │       ├── code
+│   │   │   │   │       │   │       │   └── preprocess_tertiary_regulation.yml
+│   │   │   │   │       │   │       └── toc.yml
+│   │   │   │   │       │   ├── survey
+│   │   │   │   │       │   │   ├── code
+│   │   │   │   │       │   │   │   ├── preprocess_q1_age.yml
+│   │   │   │   │       │   │   │   ├── preprocess_q10_incentive_wide.yml
+│   │   │   │   │       │   │   │   ├── preprocess_q11_notify_optin.yml
+│   │   │   │   │       │   │   │   ├── preprocess_q12_smartplug.yml
+│   │   │   │   │       │   │   │   ├── preprocess_q13_income.yml
+│   │   │   │   │       │   │   │   ├── preprocess_q14_education.yml
+│   │   │   │   │       │   │   │   ├── preprocess_q15_party.yml
+│   │   │   │   │       │   │   │   ├── preprocess_q2_gender.yml
+│   │   │   │   │       │   │   │   ├── preprocess_q3_household_size.yml
+│   │   │   │   │       │   │   │   ├── preprocess_q4_accommodation.yml
+│   │   │   │   │       │   │   │   ├── preprocess_q5_electricity.yml
+│   │   │   │   │       │   │   │   ├── preprocess_q6_challenges.yml
+│   │   │   │   │       │   │   │   ├── preprocess_q7_consequence.yml
+│   │   │   │   │       │   │   │   ├── preprocess_q8_importance_wide.yml
+│   │   │   │   │       │   │   │   └── preprocess_q9_nonuse_wide.yml
+│   │   │   │   │       │   │   └── toc.yml
+│   │   │   │   │       │   └── toc.yml
+│   │   │   │   │       ├── step03_processed_data
+│   │   │   │   │       │   ├── lastprofile
+│   │   │   │   │       │   │   ├── monthly_2024.yml
+│   │   │   │   │       │   │   └── toc.yml
+│   │   │   │   │       │   ├── market
+│   │   │   │   │       │   │   ├── regelenergie
+│   │   │   │   │       │   │   │   └── schema_monthly.yml
+│   │   │   │   │       │   │   ├── regelenergie.yml
+│   │   │   │   │       │   │   └── toc.yml
+│   │   │   │   │       │   ├── overview.yml
+│   │   │   │   │       │   ├── survey
+│   │   │   │   │       │   │   ├── processed_files.yml
+│   │   │   │   │       │   │   └── toc.yml
+│   │   │   │   │       │   └── toc.yml
+│   │   │   │   │       ├── step04_dataloaders
+│   │   │   │   │       │   └── dataloaders
+│   │   │   │   │       │       ├── lastprofile
+│   │   │   │   │       │       │   ├── code
+│   │   │   │   │       │       │   │   └── io.yml
+│   │   │   │   │       │       │   └── toc.yml
+│   │   │   │   │       │       ├── market
+│   │   │   │   │       │       │   ├── code
+│   │   │   │   │       │       │   │   ├── dr_windows_loader.yml
+│   │   │   │   │       │       │   │   └── tertiary_regulation_loader.yml
+│   │   │   │   │       │       │   └── toc.yml
+│   │   │   │   │       │       ├── survey
+│   │   │   │   │       │       │   ├── code
+│   │   │   │   │       │       │   │   ├── attitudes.yml
+│   │   │   │   │       │       │   │   ├── demand_response.yml
+│   │   │   │   │       │       │   │   ├── demographics.yml
+│   │   │   │   │       │       │   │   ├── nonuse.yml
+│   │   │   │   │       │       │   │   └── socioeconomics.yml
+│   │   │   │   │       │       │   └── toc.yml
+│   │   │   │   │       │       └── toc.yml
+│   │   │   │   │       └── step06_sozio_technisches_simulationsmodell
+│   │   │   │   │           ├── dr_windows
+│   │   │   │   │           │   ├── artifacts
+│   │   │   │   │           │   │   ├── tre_dr_days_csv.yml
+│   │   │   │   │           │   │   ├── tre_ranked_days_csv.yml
+│   │   │   │   │           │   │   └── tre_windows_csv.yml
+│   │   │   │   │           │   ├── code
+│   │   │   │   │           │   │   ├── tre01_peak_price_finder.yml
+│   │   │   │   │           │   │   ├── tre02_jasm_dishwasher_peak_usage_finder.yml
+│   │   │   │   │           │   │   ├── tre03_dr_day_identifier.yml
+│   │   │   │   │           │   │   └── tre04_dr_day_ranker.yml
+│   │   │   │   │           │   └── tre_jasm_csv.yml
+│   │   │   │   │           ├── flexibility_potential
+│   │   │   │   │           │   ├── code
+│   │   │   │   │           │   │   ├── a_survey_data_preparer.yml
+│   │   │   │   │           │   │   ├── b_participation_calculator.yml
+│   │   │   │   │           │   │   ├── c_flexibility_visualizer.yml
+│   │   │   │   │           │   │   └── d_surface_batch.yml
+│   │   │   │   │           │   └── explainers
+│   │   │   │   │           │       ├── a_survey_data_preparer.yml
+│   │   │   │   │           │       ├── b_participation_calculator.yml
+│   │   │   │   │           │       ├── c_flexibility_visualizer.yml
+│   │   │   │   │           │       └── d_surface_batch.yml
+│   │   │   │   │           ├── simulation
+│   │   │   │   │           │   ├── artifacts
+│   │   │   │   │           │   │   ├── tre05_simulation_results_csv.yml
+│   │   │   │   │           │   │   ├── tre06_shiftable_energy_detailed_csv.yml
+│   │   │   │   │           │   │   └── tre06_shiftable_energy_summary_csv.yml
+│   │   │   │   │           │   └── code
+│   │   │   │   │           │       ├── tre05_flex_potential_simulation.yml
+│   │   │   │   │           │       └── tre06_grid_shiftable_energy.yml
+│   │   │   │   │           └── toc.yml
 │   │   │   │   ├── config.yml
 │   │   │   │   ├── README.md
 │   │   │   │   └── schema
+│   │   │   │       └── cards.py
 │   │   │   ├── lib
 │   │   │   │   └── openai_wrap.py
 │   │   │   ├── main.py
 │   │   │   ├── routers
 │   │   │   │   ├── __init__.py
-│   │   │   │   ├── ai_guide.py
+│   │   │   │   ├── ai_guide_router.py
 │   │   │   │   ├── health.py
-│   │   │   │   ├── lastprofile.py
-│   │   │   │   ├── rag.py
-│   │   │   │   └── survey.py
+│   │   │   │   └── warehouse.py
 │   │   │   └── schemas
-│   │   │       ├── common.py
-│   │   │       ├── lastprofile.py
-│   │   │       └── survey.py
+│   │   │       └── common.py
 │   │   ├── Dockerfile
 │   │   └── requirements.txt
 │   └── web
@@ -77,6 +175,9 @@
 │       │   ├── data-store.json
 │       │   ├── settings.json
 │       │   └── types.d.ts
+│       ├── .env.local
+│       ├── .gitattributes
+│       ├── .gitignore
 │       ├── .vscode
 │       │   ├── extensions.json
 │       │   └── launch.json
@@ -88,11 +189,86 @@
 │       ├── src
 │       │   ├── assets
 │       │   │   └── houston.webp
+│       │   ├── components
+│       │   │   ├── AIGuide.tsx
+│       │   │   ├── ChatWidget.tsx
+│       │   │   └── StepFlow.tsx
 │       │   ├── content
 │       │   │   └── docs
-│       │   └── content.config.ts
+│       │   │       ├── ai-guide-studio.mdx
+│       │   │       ├── executive-summary.mdx
+│       │   │       ├── guide.mdx
+│       │   │       ├── index.mdx
+│       │   │       └── methodik.mdx
+│       │   ├── content.config.ts
+│       │   ├── layouts
+│       │   │   └── Layout.astro
+│       │   ├── lib
+│       │   │   ├── config.ts
+│       │   │   └── units.ts
+│       │   └── pages
+│       │       └── dashboard.astro
 │       └── tsconfig.json
 ├── data
+│   ├── .DS_Store
+│   ├── curated
+│   │   ├── .DS_Store
+│   │   ├── lastprofile
+│   │   │   └── year=2024
+│   │   │       ├── month=01
+│   │   │       │   └── data.parquet
+│   │   │       ├── month=02
+│   │   │       │   └── data.parquet
+│   │   │       ├── month=03
+│   │   │       │   └── data.parquet
+│   │   │       ├── month=04
+│   │   │       │   └── data.parquet
+│   │   │       ├── month=05
+│   │   │       │   └── data.parquet
+│   │   │       ├── month=06
+│   │   │       │   └── data.parquet
+│   │   │       ├── month=07
+│   │   │       │   └── data.parquet
+│   │   │       ├── month=08
+│   │   │       │   └── data.parquet
+│   │   │       ├── month=09
+│   │   │       │   └── data.parquet
+│   │   │       ├── month=10
+│   │   │       │   └── data.parquet
+│   │   │       ├── month=11
+│   │   │       │   └── data.parquet
+│   │   │       └── month=12
+│   │   │           └── data.parquet
+│   │   ├── market
+│   │   │   └── regelenergie
+│   │   │       └── year=2024
+│   │   │           ├── month=01
+│   │   │           │   └── data.parquet
+│   │   │           ├── month=02
+│   │   │           │   └── data.parquet
+│   │   │           ├── month=03
+│   │   │           │   └── data.parquet
+│   │   │           ├── month=04
+│   │   │           │   └── data.parquet
+│   │   │           ├── month=05
+│   │   │           │   └── data.parquet
+│   │   │           ├── month=06
+│   │   │           │   └── data.parquet
+│   │   │           ├── month=07
+│   │   │           │   └── data.parquet
+│   │   │           ├── month=08
+│   │   │           │   └── data.parquet
+│   │   │           ├── month=09
+│   │   │           │   └── data.parquet
+│   │   │           ├── month=10
+│   │   │           │   └── data.parquet
+│   │   │           ├── month=11
+│   │   │           │   └── data.parquet
+│   │   │           └── month=12
+│   │   │               └── data.parquet
+│   │   └── survey
+│   │       └── wide
+│   │           └── data.parquet
 │   ├── lastprofile
 │   │   ├── curated
 │   │   │   ├── .gitkeep
@@ -142,6 +318,18 @@
 │   │   │   │   └── tre_windows_geschirrspueler_2024_top200_thr70_fx0.97.csv
 │   │   │   ├── market
 │   │   │   │   └── regelenergie
+│   │   │   │       ├── 2024-01.csv
+│   │   │   │       ├── 2024-02.csv
+│   │   │   │       ├── 2024-03.csv
+│   │   │   │       ├── 2024-04.csv
+│   │   │   │       ├── 2024-05.csv
+│   │   │   │       ├── 2024-06.csv
+│   │   │   │       ├── 2024-07.csv
+│   │   │   │       ├── 2024-08.csv
+│   │   │   │       ├── 2024-09.csv
+│   │   │   │       ├── 2024-10.csv
+│   │   │   │       ├── 2024-11.csv
+│   │   │   │       └── 2024-12.csv
 │   │   │   ├── regelenergie
 │   │   │   │   ├── 2024-01.csv
 │   │   │   │   ├── 2024-02.csv
@@ -163,7 +351,52 @@
 │   │           ├── .DS_Store
 │   │           ├── .gitkeep
 │   │           ├── mfrR
+│   │           │   ├── .DS_Store
+│   │           │   ├── .gitkeep
+│   │           │   └── 2024
+│   │           │       ├── .gitkeep
+│   │           │       ├── 2024-01-TRE-Ergebnis.csv
+│   │           │       ├── 2024-02-TRE-Ergebnis.csv
+│   │           │       ├── 2024-03-TRE-Ergebnis.csv
+│   │           │       ├── 2024-04-TRE-Ergebnis.csv
+│   │           │       ├── 2024-05-TRE-Ergebnis.csv
+│   │           │       ├── 2024-06-TRE-Ergebnis.csv
+│   │           │       ├── 2024-07-TRE-Ergebnis.csv
+│   │           │       ├── 2024-08-TRE-Ergebnis.csv
+│   │           │       ├── 2024-09-TRE-Ergebnis.csv
+│   │           │       ├── 2024-10-TRE-Ergebnis.csv
+│   │           │       ├── 2024-11-TRE-Ergebnis.csv
+│   │           │       └── 2024-12-TRE-Ergebnis.csv
 │   │           └── spot_prices
+│   │               ├── .gitkeep
+│   │               ├── 2015
+│   │               │   ├── .gitkeep
+│   │               │   ├── 2015-01.csv
+│   │               │   ├── 2015-02.csv
+│   │               │   ├── 2015-03.csv
+│   │               │   ├── 2015-04.csv
+│   │               │   ├── 2015-05.csv
+│   │               │   ├── 2015-06.csv
+│   │               │   ├── 2015-07.csv
+│   │               │   ├── 2015-08.csv
+│   │               │   ├── 2015-09.csv
+│   │               │   ├── 2015-10.csv
+│   │               │   ├── 2015-11.csv
+│   │               │   └── 2015-12.csv
+│   │               └── 2024
+│   │                   ├── .gitkeep
+│   │                   ├── 2024-01.csv
+│   │                   ├── 2024-02.csv
+│   │                   ├── 2024-03.csv
+│   │                   ├── 2024-04.csv
+│   │                   ├── 2024-05.csv
+│   │                   ├── 2024-06.csv
+│   │                   ├── 2024-07.csv
+│   │                   ├── 2024-08.csv
+│   │                   ├── 2024-09.csv
+│   │                   ├── 2024-10.csv
+│   │                   ├── 2024-11.csv
+│   │                   └── 2024-12.csv
 │   ├── survey
 │   │   ├── curated
 │   │   │   └── .gitkeep
@@ -226,17 +459,107 @@
     │   │   ├── .gitkeep
     │   │   ├── processed
     │   │   │   ├── dr_windows
+    │   │   │   │   ├── tre_dr_days_geschirrspueler_2024_top200_thr70_fx0.97.csv
+    │   │   │   │   ├── tre_jasm_geschirrspueler_2024_top24_fx0.97.csv
+    │   │   │   │   ├── tre_ranked_days_geschirrspueler_2024_top200_thr70_fx0.97.csv
+    │   │   │   │   ├── tre_top_periods_2024_fx0.97.csv
+    │   │   │   │   ├── tre_top_periods_2024.csv
+    │   │   │   │   └── tre_windows_geschirrspueler_2024_top200_thr70_fx0.97.csv
     │   │   │   ├── market
+    │   │   │   │   └── regelenergie
+    │   │   │   │       ├── 2024-01.csv
+    │   │   │   │       ├── 2024-02.csv
+    │   │   │   │       ├── 2024-03.csv
+    │   │   │   │       ├── 2024-04.csv
+    │   │   │   │       ├── 2024-05.csv
+    │   │   │   │       ├── 2024-06.csv
+    │   │   │   │       ├── 2024-07.csv
+    │   │   │   │       ├── 2024-08.csv
+    │   │   │   │       ├── 2024-09.csv
+    │   │   │   │       ├── 2024-10.csv
+    │   │   │   │       ├── 2024-11.csv
+    │   │   │   │       └── 2024-12.csv
     │   │   │   ├── regelenergie
+    │   │   │   │   ├── 2024-01.csv
+    │   │   │   │   ├── 2024-02.csv
+    │   │   │   │   ├── 2024-03.csv
+    │   │   │   │   ├── 2024-04.csv
+    │   │   │   │   ├── 2024-05.csv
+    │   │   │   │   ├── 2024-06.csv
+    │   │   │   │   ├── 2024-07.csv
+    │   │   │   │   ├── 2024-08.csv
+    │   │   │   │   ├── 2024-09.csv
+    │   │   │   │   ├── 2024-10.csv
+    │   │   │   │   ├── 2024-11.csv
+    │   │   │   │   └── 2024-12.csv
     │   │   │   └── simulation
+    │   │   │       ├── tre06_shiftable_energy_detailed_geschirrspueler_2024_top200_thr70_fx0.97.csv
+    │   │   │       └── tre06_shiftable_energy_summary_geschirrspueler_2024_top200_thr70_fx0.97.csv
     │   │   └── raw
     │   │       └── regelenergie
+    │   │           ├── .DS_Store
+    │   │           ├── .gitkeep
+    │   │           ├── mfrR
+    │   │           │   ├── .DS_Store
+    │   │           │   ├── .gitkeep
+    │   │           │   └── 2024
+    │   │           │       ├── .gitkeep
+    │   │           │       ├── 2024-01-TRE-Ergebnis.csv
+    │   │           │       ├── 2024-02-TRE-Ergebnis.csv
+    │   │           │       ├── 2024-03-TRE-Ergebnis.csv
+    │   │           │       ├── 2024-04-TRE-Ergebnis.csv
+    │   │           │       ├── 2024-05-TRE-Ergebnis.csv
+    │   │           │       ├── 2024-06-TRE-Ergebnis.csv
+    │   │           │       ├── 2024-07-TRE-Ergebnis.csv
+    │   │           │       ├── 2024-08-TRE-Ergebnis.csv
+    │   │           │       ├── 2024-09-TRE-Ergebnis.csv
+    │   │           │       ├── 2024-10-TRE-Ergebnis.csv
+    │   │           │       ├── 2024-11-TRE-Ergebnis.csv
+    │   │           │       └── 2024-12-TRE-Ergebnis.csv
+    │   │           └── spot_prices
+    │   │               ├── .gitkeep
+    │   │               ├── 2015
+    │   │               │   ├── .gitkeep
+    │   │               │   ├── 2015-01.csv
+    │   │               │   ├── 2015-02.csv
+    │   │               │   ├── 2015-03.csv
+    │   │               │   ├── 2015-04.csv
+    │   │               │   ├── 2015-05.csv
+    │   │               │   ├── 2015-06.csv
+    │   │               │   ├── 2015-07.csv
+    │   │               │   ├── 2015-08.csv
+    │   │               │   ├── 2015-09.csv
+    │   │               │   ├── 2015-10.csv
+    │   │               │   ├── 2015-11.csv
+    │   │               │   └── 2015-12.csv
+    │   │               └── 2024
+    │   │                   ├── .gitkeep
+    │   │                   ├── 2024-01.csv
+    │   │                   ├── 2024-02.csv
+    │   │                   ├── 2024-03.csv
+    │   │                   ├── 2024-04.csv
+    │   │                   ├── 2024-05.csv
+    │   │                   ├── 2024-06.csv
+    │   │                   ├── 2024-07.csv
+    │   │                   ├── 2024-08.csv
+    │   │                   ├── 2024-09.csv
+    │   │                   ├── 2024-10.csv
+    │   │                   ├── 2024-11.csv
+    │   │                   └── 2024-12.csv
     │   ├── README.md
     │   └── survey -> ../../data/survey/raw
     ├── step02_preprocessing
     │   ├── __init__.py
     │   ├── .DS_Store
     │   ├── check.py
+    │   ├── curated
+    │   │   ├── lastprofile
+    │   │   │   └── parquet_lastprofile_2024.py
+    │   │   ├── market
+    │   │   │   └── regelenergie
+    │   │   │       └── parquet_tertiary_regulation.py
+    │   │   └── survey
+    │   │       └── parquet_survey_wide.py
     │   ├── etl
     │   │   └── common.py
     │   ├── lastprofile
@@ -337,4 +660,4 @@
             ├── tre05_flex_potential_simulation.py
             └── tre06_grid_shiftable_energy.py
 
-96 directories, 242 files
+177 directories, 484 files
