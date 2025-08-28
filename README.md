@@ -9,7 +9,7 @@ Monorepo für **powere.ch**:
 
 - **Web** – Statische Seite mit Astro/Starlight (`apps/web`)
 - **API** – FastAPI-Backend mit RAG (Qdrant + Embeddings) (`apps/api`)
-- **AI-Guide (RAG)** – Wissensbasis & Indizierung (`ai_guide`)
+- **AI-Guide (RAG)** – Endpoints: `apps/api/app/routers/ai_guide_router.py`
 - **Modelle/Steps** – DR-Fenster, Flex-Simulationen (`steps/**`)
 
 Ziel: Daten + Modelle + Erklärtexte konsistent bereitstellen – inkl. Chat-Suche über eigene Inhalte (RAG) und reproduzierbaren **Demand-Response**-Simulationen.
