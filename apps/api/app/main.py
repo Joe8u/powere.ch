@@ -1,4 +1,3 @@
-#apps/api/app/main.py
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
@@ -7,21 +6,23 @@ import os
 
 from .core import EMBED_BACKEND, EMBED_DIM, QDRANT_COLLECTION, CHAT_MODEL, chat_client
 from app.routers.ai_guide_router import router as ai_router
-from app.routers import warehouse
+from app.routers import warehouse 
 
 DEFAULT_ORIGINS = "https://www.powere.ch,https://powere.ch,http://localhost:4321"
 CORS_ORIGINS = [o.strip() for o in os.getenv("API_CORS_ORIGINS", DEFAULT_ORIGINS).split(",") if o.strip()]
-ROOT_PATH = os.getenv("API_ROOT_PATH", "")  # z.B. "/api"
-ALLOWED_HOSTS = [h.strip() for h in os.getenv("API_ALLOWED_HOSTS", "localhost,127.0.0.1,powere.ch,www.powere.ch").split(",")]
+ROOT_PATH = os.getenv("API_ROOT_PATH", "") 
+ALLOWED_HOSTS = [h.strip() for h in os.getenv(
+    "API_ALLOWED_HOSTS",
+    "localhost,127.0.0.1,api.powere.ch,powere.ch,www.powere.ch" 
+).split(",")]
 
 app = FastAPI(
     title="powere.ch API",
     version="0.2.0",
     default_response_class=JSONResponse,
-    root_path=ROOT_PATH if ROOT_PATH else "",   # <- Pylance happy
+    root_path=ROOT_PATH if ROOT_PATH else "",
 )
 
-# optional, aber nützlich in Prod
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=ALLOWED_HOSTS)
 
 app.add_middleware(
@@ -55,3 +56,4 @@ def ping():
     return {"msg": "pong"}
 
 app.include_router(ai_router, tags=["ai-guide"])
+app.include_router(warehouse.router, tags=["warehouse"]) 

@@ -29,6 +29,7 @@ services:
       - FASTEMBED_MODEL=${FASTEMBED_MODEL:-sentence-transformers/all-MiniLM-L6-v2}
       - DATA_ROOT=/app/data
       - WAREHOUSE_DATA_ROOT=/app/data
+      - API_ALLOWED_HOSTS=localhost,127.0.0.1,api.powere.ch,powere.ch,www.powere.ch
     volumes:
       - /srv/repos/powere.ch/data:/app/data:ro
     depends_on:
