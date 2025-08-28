@@ -1,4 +1,0 @@
-- **TRE**: Tertiäre Regelleistung; hier als Arbeitspreis in CHF/kWh.
-- **finale_teilnahmequote**: nach Cap (≤ 62.9%).
-- **event_hours_paid_cap**: bezahlte Eventstunden (≤ 3h und ≤ cycle_hours).
-- **event_kwh_cap**: max. kWh pro HH, die vergütet werden.
