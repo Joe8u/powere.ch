@@ -1,0 +1,11 @@
+apps/web/.env.local
+.env
+.env.*
+*.parquet
+data/
+apps/web/.env.local
+.env
+.env.*
+apps/web/.env.local
+.env
+.env.*
