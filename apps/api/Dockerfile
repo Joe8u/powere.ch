@@ -9,12 +9,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 # 2) App-Code
 COPY apps/api/app ./app
 
-# 3) API-Code + ai_guide
-
-# 4) Steps-Code (für Code-Karten in der Knowledge Base)
+# 3) Steps-Code (für Code-Karten in der Knowledge Base)
 COPY steps ./steps
 
-# 5) Laufzeit-Config: Datenwurzel (per Volume mounten, siehe Compose)
+# 4) Laufzeit-Config: Datenwurzel (per Volume mounten, siehe Compose)
 ENV DATA_ROOT=/app/data
 
 EXPOSE 8000
