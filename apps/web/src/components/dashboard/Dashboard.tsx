@@ -1,5 +1,13 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 
+import { useMfrr } from './hooks/useMfrr';
+import { useSurvey } from './hooks/useSurvey';
+import { KPIs } from './sections/KPIs';
+import { MfrrTable } from './sections/MfrrTable';
+import { SurveyList } from './sections/SurveyList';
+import { ErrorBanner } from './ui/ErrorBanner';
+import { Loading } from './ui/Loading';
+
 type MfrrPoint = {
   ts: string;
   total_called_mw: number | null;
@@ -29,84 +37,18 @@ async function fetchJson<T>(url: string): Promise<T> {
 }
 
 export default function Dashboard() {
-  const [mfrr, setMfrr] = useState<MfrrPoint[] | null>(null);
-  const [survey, setSurvey] = useState<SurveyRow[] | null>(null);
-  const [err, setErr] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data: mfrr, loading: l1, error: e1 } = useMfrr({ agg: 'hour', limit: 24 });
+  const { data: survey, loading: l2, error: e2 } = useSurvey({ limit: 5 });
 
-  useEffect(() => {
-    let cancelled = false;
-
-    (async () => {
-      try {
-        const [mfrrData, surveyData] = await Promise.all([
-          fetchJson<MfrrPoint[]>(`${API_BASE}/warehouse/regelenergie/tertiary?agg=hour&limit=24`),
-          fetchJson<SurveyRow[]>(`${API_BASE}/warehouse/survey/wide?columns=respondent_id,age,gender&limit=5`),
-        ]);
-        if (!cancelled) {
-          setMfrr(mfrrData);
-          setSurvey(surveyData);
-        }
-      } catch (e: any) {
-        if (!cancelled) setErr(e?.message ?? 'Unbekannter Fehler');
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  if (loading) return <div>Lade Dashboard…</div>;
-  if (err) return <div style={{ color: 'crimson' }}>Fehler: {err}</div>;
-
-  const avgPrice = avg(mfrr?.map((x) => (x.avg_price_eur_mwh ?? 0)));
-  const avgMw = avg(mfrr?.map((x) => (x.total_called_mw ?? 0)));
+  if (l1 || l2) return <Loading>Lade Dashboard…</Loading>;
 
   return (
     <div style={{ display: 'grid', gap: 16 }}>
-      <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 12 }}>
-        <Kpi title="mFRR Punkte (24h)" value={mfrr?.length ?? 0} />
-        <Kpi title="Durchschn. Preis (24h)" value={avgPrice != null ? `${avgPrice.toFixed(1)} €/MWh` : '–'} />
-        <Kpi title="Durchschn. Abruf (24h)" value={avgMw != null ? `${avgMw.toFixed(0)} MW` : '–'} />
-      </section>
+      {(e1 || e2) && <ErrorBanner>Fehler: {(e1 || e2) as string}</ErrorBanner>}
 
-      <section>
-        <h3>mFRR (letzte 24h)</h3>
-        <div style={{ fontSize: 14, maxHeight: 260, overflow: 'auto', border: '1px solid #eee', borderRadius: 8 }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr>
-                <th style={th}>Stunde</th>
-                <th style={th}>MW</th>
-                <th style={th}>€/MWh</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(mfrr ?? []).map((r) => (
-                <tr key={r.ts}>
-                  <td style={td}>{r.ts.replace('T', ' ')}</td>
-                  <td style={td}>{Math.round(r.total_called_mw ?? 0)}</td>
-                  <td style={td}>{typeof r.avg_price_eur_mwh === 'number' ? r.avg_price_eur_mwh.toFixed(1) : '–'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section>
-        <h3>Survey (Beispiel: 5 Zeilen)</h3>
-        <ul style={{ margin: 0, paddingLeft: 18 }}>
-          {(survey ?? []).map((r) => (
-            <li key={r.respondent_id}>
-              #{r.respondent_id} – {r.age ?? '–'} Jahre – {r.gender ?? '–'}
-            </li>
-          ))}
-        </ul>
-      </section>
+      {mfrr && <KPIs mfrr={mfrr} />}
+      {mfrr && <MfrrTable rows={mfrr} />}
+      {survey && <SurveyList rows={survey} />}
     </div>
   );
 }
