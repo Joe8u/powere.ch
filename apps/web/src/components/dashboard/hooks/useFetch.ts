@@ -1,32 +1,63 @@
 // apps/web/src/components/dashboard/hooks/useFetch.ts
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
+export type UseFetchResult<T> = {
+  data: T | null;
+  loading: boolean;
+  error: string | null;
+  refetch: () => void;
+};
+
+/**
+ * Generischer Fetch-Hook mit Abort + manueller Neu­ladung.
+ * @param fetcher  erhält ein AbortSignal und liefert Promise<T>
+ * @param deps     Abhängig­keiten, bei deren Änderung neu geladen wird
+ */
 export function useFetch<T>(
-  factory: (signal: AbortSignal) => Promise<T>,
-  deps: unknown[] = []
-): { data: T | null; loading: boolean; error: string | null } {
+  fetcher: (signal: AbortSignal) => Promise<T>,
+  deps: any[] = []
+): UseFetchResult<T> {
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
-  useEffect(() => {
-    const ac = new AbortController();
+  const run = useCallback(() => {
+    // alten Request abbrechen
+    abortRef.current?.abort();
+    const ctl = new AbortController();
+    abortRef.current = ctl;
+
     setLoading(true);
     setError(null);
 
-    factory(ac.signal)
-      .then((d) => setData(d))
+    fetcher(ctl.signal)
+      .then((d) => {
+        if (!ctl.signal.aborted) setData(d);
+      })
       .catch((e) => {
-        if ((e && e.name) === 'AbortError') return;
-        setError(e?.message || 'Unbekannter Fehler');
+        if (!ctl.signal.aborted) {
+          const msg =
+            e?.name === 'AbortError'
+              ? 'Abgebrochen'
+              : e?.message || 'Unbekannter Fehler';
+          setError(msg);
+        }
       })
       .finally(() => {
-        if (!ac.signal.aborted) setLoading(false);
+        if (!ctl.signal.aborted) setLoading(false);
       });
+  // wichtig: fetcher UND deps in die Abhängigkeiten
+  }, [fetcher, ...deps]);
 
-    return () => ac.abort();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, deps);
+  useEffect(() => {
+    run();
+    return () => abortRef.current?.abort();
+  }, [run]);
 
-  return { data, loading, error };
+  const refetch = useCallback(() => {
+    run();
+  }, [run]);
+
+  return { data, loading, error, refetch };
 }

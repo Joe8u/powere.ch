@@ -1,12 +1,16 @@
-// apps/web/src/components/dashboard/hooks/useMfrr.ts
-import { useFetch } from './useFetch';
+import { useFetch, type UseFetchResult } from './useFetch';
 import { fetchMfrr } from '../api/warehouse';
-import type { MfrrPoint } from '../types';
+import type { MfrrPoint, Agg } from '../types';
 
-export function useMfrr(params?: Parameters<typeof fetchMfrr>[0]) {
+export function useMfrr(opts?: {
+  agg?: Agg;
+  start?: string;
+  end?: string;
+  limit?: number;
+  offset?: number;
+}): UseFetchResult<MfrrPoint[]> {
   return useFetch<MfrrPoint[]>(
-    (signal) => fetchMfrr(params, { signal }),
-    // deps: bei Objekt-Props JSON-stabilisieren
-    [JSON.stringify(params ?? {})]
+    (signal) => fetchMfrr(opts, { signal }),
+    [JSON.stringify(opts ?? {})]
   );
 }

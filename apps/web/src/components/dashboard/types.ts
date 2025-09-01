@@ -1,4 +1,6 @@
 // apps/web/src/components/dashboard/types.ts
+export type Agg = 'raw' | 'hour' | 'day';
+
 export type MfrrPoint = {
   ts: string;
   total_called_mw: number;
