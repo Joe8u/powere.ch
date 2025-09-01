@@ -1,66 +1,56 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 
-type Healthz = {
-  status: string;
-  backend: string;
-  dim: number;
-  collection: string;
-  chat_model: string | null;
+type MfrrPoint = {
+  ts: string;
+  total_called_mw: number | null;
+  avg_price_eur_mwh: number | null;
 };
-
-type WarehousePing = { ok: boolean; root: string };
 
 type SurveyRow = { respondent_id: string; age: number | null; gender: string | null };
 
-type SearchHit = {
-  id: string | number;
-  title?: string | null;
-  url?: string | null;
-  score: number;
-  snippet: string;
-};
+// Nutzt PUBLIC_API_BASE, ansonsten stabile Fallback-URL (Prod).
+// Für lokale Tests einfach in apps/web/.env.local setzen:
+//   PUBLIC_API_BASE=http://127.0.0.1:9000
+const API_BASE: string = (import.meta.env.PUBLIC_API_BASE as string | undefined) ?? 'https://api.powere.ch';
+console.info('[Dashboard] API base =', API_BASE);
 
-const API_BASE: string =
-  (import.meta as any)?.env?.PUBLIC_API_BASE ?? "https://api.powere.ch";
-
-async function fetchJSON<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...init,
-    headers: { "Accept": "application/json", ...(init?.headers || {}) },
-  });
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+async function fetchJson<T>(url: string): Promise<T> {
+  const res = await fetch(url);
+  if (!res.ok) {
+    let body = '';
+    try {
+      body = await res.text();
+    } catch {
+      // ignore
+    }
+    throw new Error(`${url} → ${res.status} ${res.statusText}${body ? ` – ${body}` : ''}`);
+  }
   return res.json() as Promise<T>;
 }
 
 export default function Dashboard() {
-  const [health, setHealth] = useState<Healthz | null>(null);
-  const [wh, setWh] = useState<WarehousePing | null>(null);
+  const [mfrr, setMfrr] = useState<MfrrPoint[] | null>(null);
   const [survey, setSurvey] = useState<SurveyRow[] | null>(null);
-  const [search, setSearch] = useState<SearchHit[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
 
     (async () => {
       try {
-        const [h, w, s, r] = await Promise.all([
-          fetchJSON<Healthz>("/healthz"),
-          fetchJSON<WarehousePing>("/warehouse/ping"),
-          fetchJSON<SurveyRow[]>(
-            "/warehouse/survey/wide?columns=respondent_id,age,gender&limit=3"
-          ),
-          fetchJSON<{ query: string; results: SearchHit[] }>(
-            "/v1/search?q=test&top_k=3"
-          ),
+        const [mfrrData, surveyData] = await Promise.all([
+          fetchJson<MfrrPoint[]>(`${API_BASE}/warehouse/regelenergie/tertiary?agg=hour&limit=24`),
+          fetchJson<SurveyRow[]>(`${API_BASE}/warehouse/survey/wide?columns=respondent_id,age,gender&limit=5`),
         ]);
-        if (cancelled) return;
-        setHealth(h);
-        setWh(w);
-        setSurvey(s);
-        setSearch(r.results);
+        if (!cancelled) {
+          setMfrr(mfrrData);
+          setSurvey(surveyData);
+        }
       } catch (e: any) {
-        if (!cancelled) setError(e?.message ?? String(e));
+        if (!cancelled) setErr(e?.message ?? 'Unbekannter Fehler');
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     })();
 
@@ -69,149 +59,74 @@ export default function Dashboard() {
     };
   }, []);
 
+  if (loading) return <div>Lade Dashboard…</div>;
+  if (err) return <div style={{ color: 'crimson' }}>Fehler: {err}</div>;
+
+  const avgPrice = avg(mfrr?.map((x) => (x.avg_price_eur_mwh ?? 0)));
+  const avgMw = avg(mfrr?.map((x) => (x.total_called_mw ?? 0)));
+
   return (
-    <div className="space-y-8">
-      <div className="prose max-w-none">
-        <h1 className="mb-2">powere.ch – Dashboard (Beta)</h1>
-        <p className="mt-0">
-          Kurzer Live-Check der Backend-Dienste und ein mini-Einblick in Daten.
-          (Quelle: <code>{API_BASE}</code>)
-        </p>
-      </div>
+    <div style={{ display: 'grid', gap: 16 }}>
+      <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 12 }}>
+        <Kpi title="mFRR Punkte (24h)" value={mfrr?.length ?? 0} />
+        <Kpi title="Durchschn. Preis (24h)" value={avgPrice != null ? `${avgPrice.toFixed(1)} €/MWh` : '–'} />
+        <Kpi title="Durchschn. Abruf (24h)" value={avgMw != null ? `${avgMw.toFixed(0)} MW` : '–'} />
+      </section>
 
-      {/* Status Cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatusCard
-          label="API Health"
-          value={health ? "OK" : "…"}
-          sub={
-            health
-              ? `${health.backend} · ${health.collection} · ${health.chat_model ?? "kein Chat"}`
-              : "lädt…"
-          }
-          ok={!!health}
-        />
-        <StatusCard
-          label="Warehouse"
-          value={wh?.ok ? "OK" : "…"}
-          sub={wh?.root ?? "lädt…"}
-          ok={!!wh?.ok}
-        />
-        <StatusCard
-          label="Survey (Rows)"
-          value={survey ? `${survey.length}` : "…"}
-          sub="limit=3"
-          ok={!!survey}
-        />
-        <StatusCard
-          label="RAG Treffer"
-          value={search ? `${search.length}` : "…"}
-          sub="q=test · top_k=3"
-          ok={!!search}
-        />
-      </div>
-
-      {/* Fehleranzeige */}
-      {error && (
-        <div className="rounded-lg border border-red-300 bg-red-50 p-4 text-red-800">
-          <strong>Fehler:</strong> {error}
-        </div>
-      )}
-
-      {/* Tabellen */}
-      <section className="space-y-3">
-        <h2 className="text-xl font-semibold">Survey (Beispiel)</h2>
-        <div className="overflow-x-auto rounded-lg border">
-          <table className="min-w-full text-sm">
-            <thead className="bg-gray-50">
+      <section>
+        <h3>mFRR (letzte 24h)</h3>
+        <div style={{ fontSize: 14, maxHeight: 260, overflow: 'auto', border: '1px solid #eee', borderRadius: 8 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
               <tr>
-                <Th>respondent_id</Th>
-                <Th>age</Th>
-                <Th>gender</Th>
+                <th style={th}>Stunde</th>
+                <th style={th}>MW</th>
+                <th style={th}>€/MWh</th>
               </tr>
             </thead>
             <tbody>
-              {(survey ?? []).map((r) => (
-                <tr key={r.respondent_id} className="odd:bg-white even:bg-gray-50">
-                  <Td mono>{r.respondent_id}</Td>
-                  <Td>{r.age ?? "—"}</Td>
-                  <Td>{r.gender ?? "—"}</Td>
+              {(mfrr ?? []).map((r) => (
+                <tr key={r.ts}>
+                  <td style={td}>{r.ts.replace('T', ' ')}</td>
+                  <td style={td}>{Math.round(r.total_called_mw ?? 0)}</td>
+                  <td style={td}>{typeof r.avg_price_eur_mwh === 'number' ? r.avg_price_eur_mwh.toFixed(1) : '–'}</td>
                 </tr>
               ))}
-              {(!survey || survey.length === 0) && (
-                <tr>
-                  <Td colSpan={3}>Keine Daten (oder lädt)…</Td>
-                </tr>
-              )}
             </tbody>
           </table>
         </div>
       </section>
 
-      <section className="space-y-3">
-        <h2 className="text-xl font-semibold">RAG (Beispiele)</h2>
-        <ul className="space-y-2">
-          {(search ?? []).map((h) => (
-            <li key={String(h.id)} className="rounded-lg border p-3">
-              <div className="flex items-baseline justify-between gap-3">
-                <div className="font-medium">{h.title ?? "Ohne Titel"}</div>
-                <code className="text-xs">score: {h.score.toFixed(3)}</code>
-              </div>
-              {h.url && (
-                <div className="text-xs text-blue-700 underline break-all">
-                  <a href={h.url} target="_blank" rel="noreferrer">
-                    {h.url}
-                  </a>
-                </div>
-              )}
-              <p className="mt-1 text-sm text-gray-700">
-                {h.snippet?.trim() || "—"}
-              </p>
+      <section>
+        <h3>Survey (Beispiel: 5 Zeilen)</h3>
+        <ul style={{ margin: 0, paddingLeft: 18 }}>
+          {(survey ?? []).map((r) => (
+            <li key={r.respondent_id}>
+              #{r.respondent_id} – {r.age ?? '–'} Jahre – {r.gender ?? '–'}
             </li>
           ))}
-          {(!search || search.length === 0) && <li>Keine Treffer (oder lädt)…</li>}
         </ul>
       </section>
     </div>
   );
 }
 
-function StatusCard(props: { label: string; value: string; sub?: string; ok?: boolean }) {
+function avg(xs?: number[] | null): number | null {
+  if (!xs || xs.length === 0) return null;
+  const vals = xs.filter((n) => Number.isFinite(n));
+  if (vals.length === 0) return null;
+  const sum = vals.reduce((a, b) => a + b, 0);
+  return sum / vals.length;
+}
+
+function Kpi({ title, value }: { title: string; value: ReactNode }) {
   return (
-    <div className="rounded-2xl border p-4">
-      <div className="text-sm text-gray-600">{props.label}</div>
-      <div className="mt-1 text-2xl font-semibold">
-        {props.value}
-        <span
-          className={`ml-2 inline-block h-2 w-2 rounded-full align-middle ${
-            props.ok ? "bg-green-500" : "bg-gray-300"
-          }`}
-          title={props.ok ? "OK" : "unbekannt"}
-        />
-      </div>
-      {props.sub && <div className="mt-1 text-xs text-gray-500">{props.sub}</div>}
+    <div style={{ padding: 16, border: '1px solid #eee', borderRadius: 12 }}>
+      <div style={{ fontSize: 12, color: '#666', marginBottom: 6 }}>{title}</div>
+      <div style={{ fontSize: 22, fontWeight: 700 }}>{value}</div>
     </div>
   );
 }
 
-function Th({ children }: { children: any }) {
-  return <th className="px-3 py-2 text-left font-semibold text-gray-800">{children}</th>;
-}
-function Td({
-  children,
-  colSpan,
-  mono,
-}: {
-  children: any;
-  colSpan?: number;
-  mono?: boolean;
-}) {
-  return (
-    <td
-      colSpan={colSpan}
-      className={`px-3 py-2 ${mono ? "font-mono text-xs" : ""}`}
-    >
-      {children}
-    </td>
-  );
-}
+const th: CSSProperties = { textAlign: 'left', padding: '8px 10px', borderBottom: '1px solid #eee' };
+const td: CSSProperties = { padding: '6px 10px', borderBottom: '1px dotted #eee' };
