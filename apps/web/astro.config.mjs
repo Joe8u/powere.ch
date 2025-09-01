@@ -15,6 +15,7 @@ export default defineConfig({
       ],
       sidebar: [
         { slug: 'executive-summary' },
+        { slug: 'dashboard', label: 'Dashboard (Beta)' },
         { link: '/methodik/', label: 'Methodik' },
         {
           label: 'Mehr',
