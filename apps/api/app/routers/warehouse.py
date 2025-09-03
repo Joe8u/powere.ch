@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import os
 from datetime import datetime
+import glob
 from typing import Literal, Optional, Any, List, Sequence
 
 import duckdb
@@ -123,6 +124,9 @@ def get_lastprofile(
     Liefert Lastprofile (15-Min) aus Parquet-Partitionen (year=/month=/…).
     Optionale Filter: year, month.
     """
+    # Robustheit: Falls keine Dateien vorhanden sind, leer zurückgeben statt Exception
+    if not glob.glob(LP_GLOB):
+        return []
     select_list = _select_list_or_all(LP_GLOB, columns)
 
     where: list[str] = []
@@ -176,6 +180,10 @@ def get_tertiary_regulation(
         params.append(end)
     where_sql = f"WHERE {' AND '.join(where)}" if where else ""
 
+    # Robustheit: Falls keine Dateien vorhanden sind, leer zurückgeben statt Exception
+    if not glob.glob(TR_GLOB):
+        return []
+
     con = _connect()
     try:
         if agg == "raw":
@@ -222,6 +230,10 @@ def get_survey_wide(
     limit: int = Query(1000, ge=1, le=100000),
     offset: int = Query(0, ge=0),
 ) -> list[dict]:
+    # Robustheit: Wenn die Parquet-Datei lokal (noch) nicht vorhanden ist,
+    # liefere leeres Ergebnis statt 500-Fehler.
+    if not os.path.isfile(SURVEY_WIDE):
+        return []
     select_list = _select_with_aliases(SURVEY_WIDE, columns, SURVEY_ALIASES)
 
     age_expr    = SURVEY_ALIASES["age"]
@@ -259,6 +271,8 @@ def get_survey_wide(
 
 @router.get("/survey/wide/columns")
 def get_survey_wide_columns() -> dict:
+    if not os.path.isfile(SURVEY_WIDE):
+        return {"columns": []}
     con = _connect()
     try:
         return {"columns": _list_columns_for_parquet(con, SURVEY_WIDE)}

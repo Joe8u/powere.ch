@@ -3,11 +3,12 @@ import { useMfrr } from './hooks/useMfrr';
 import { useSurvey } from './hooks/useSurvey';
 import { KPIs } from './sections/KPIs';
 import { MfrrTable } from './sections/MfrrTable';
-import MfrrChart from './sections/MfrrChart';
 import { SurveyList } from './sections/SurveyList';
 import { Loading } from './ui/Loading';
 import { ErrorBanner } from './ui/ErrorBanner';
 import type { Agg } from './types';
+import { Suspense, lazy } from 'react';
+const MfrrChart = lazy(() => import('./sections/MfrrChart'));
 
 export default function Dashboard() {
   // Filter-State
@@ -28,11 +29,11 @@ export default function Dashboard() {
   const loading = l1 || l2;
   const error = e1 || e2;
 
-  if (loading) return <Loading />;                    // <-- kein label-Prop
-  if (error)   return <ErrorBanner>{error}</ErrorBanner>; // <-- erwartet children
-
   return (
     <div style={{ display: 'grid', gap: 16 }}>
+      {/* Status */}
+      {error && <ErrorBanner>{error}</ErrorBanner>}
+      {loading && !mfrr && !survey && <Loading>Initialisiere…</Loading>}
       {/* Filter */}
       <section style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
         <strong>Filter:</strong>
@@ -59,7 +60,12 @@ export default function Dashboard() {
       <KPIs mfrr={mfrr ?? []} />
 
       {/* Chart */}
-      <MfrrChart data={mfrr ?? []} />
+      <section>
+        <h3>mFRR (Chart)</h3>
+        <Suspense fallback={<div style={{height:240, border:'1px solid #eee', borderRadius:8}} />}>
+          {mfrr?.length ? <MfrrChart rows={mfrr} /> : <div style={{height:240}} />}
+        </Suspense>
+      </section>
 
       {/* Tabelle */}
       <MfrrTable rows={mfrr ?? []} />     {/* <-- erwartet rows */}

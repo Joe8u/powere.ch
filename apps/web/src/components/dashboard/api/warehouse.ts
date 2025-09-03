@@ -20,10 +20,16 @@ export async function fetchMfrr(
     limit: opts?.limit ?? 24,
     offset: opts?.offset ?? 0,
   });
-  return fetchJson<MfrrPoint[]>(
-    `${API_BASE}/warehouse/regelenergie/tertiary?${q}`,
+  const raw = await fetchJson<any[]>(
+    `/warehouse/regelenergie/tertiary${q}`,
     init
   );
+  // Normalisiere 'timestamp' (raw) -> 'ts' (client-Format)
+  return raw.map((r) => ({
+    ts: r.ts ?? r.timestamp,
+    total_called_mw: r.total_called_mw,
+    avg_price_eur_mwh: r.avg_price_eur_mwh ?? null,
+  })) as MfrrPoint[];
 }
 
 // Survey: /warehouse/survey/wide
@@ -49,7 +55,7 @@ export async function fetchSurvey(
     offset: params?.offset ?? 0,
   });
   return fetchJson<SurveyRow[]>(
-    `${API_BASE}/warehouse/survey/wide?${q}`,
+    `/warehouse/survey/wide${q}`,
     init
   );
 }
