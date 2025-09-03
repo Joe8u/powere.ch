@@ -1,3 +1,4 @@
+#apps/api/app/routers/warehouse/__init__.py
 from __future__ import annotations
 from fastapi import APIRouter
 from . import lastprofile, regelenergie, survey_wide, joined
