@@ -1,6 +1,6 @@
 // apps/web/src/components/dashboard/api/warehouse.ts
 import { API_BASE, fetchJson, toQuery } from './client';
-import type { Agg, MfrrPoint, SurveyRow } from '../types';
+import type { Agg, MfrrPoint, SurveyRow, LastprofileRow } from '../types';
 
 // mFRR: /warehouse/regelenergie/tertiary
 export async function fetchMfrr(
@@ -58,4 +58,39 @@ export async function fetchSurvey(
     `/warehouse/survey/wide${q}`,
     init
   );
+}
+
+// Lastprofile: /warehouse/lastprofile/series
+export async function fetchLastprofile(
+  opts?: {
+    agg?: Agg;
+    start?: string;
+    end?: string;
+    columns?: string; // Komma-Liste der Gruppen/Spalten
+    limit?: number;
+    offset?: number;
+  },
+  init?: RequestInit
+): Promise<LastprofileRow[]> {
+  const q = toQuery({
+    agg: opts?.agg ?? 'hour',
+    start: opts?.start,
+    end: opts?.end,
+    columns: opts?.columns,
+    limit: opts?.limit ?? 24,
+    offset: opts?.offset ?? 0,
+  });
+  return fetchJson<LastprofileRow[]>(
+    `/warehouse/lastprofile/series${q}`,
+    init
+  );
+}
+
+export async function fetchLastprofileMeta(init?: RequestInit): Promise<{ columns: string[]; groups: string[] }> {
+  return fetchJson<{ columns: string[]; groups: string[] }>(`/warehouse/lastprofile/columns`, init);
+}
+
+export async function fetchMfrrLatest(init?: RequestInit): Promise<string | null> {
+  const r = await fetchJson<{ latest: string | null }>(`/warehouse/regelenergie/tertiary/latest_ts`, init);
+  return r.latest ?? null;
 }

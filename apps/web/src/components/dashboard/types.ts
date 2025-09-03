@@ -12,3 +12,10 @@ export type SurveyRow = {
   age: number | null;
   gender: string | null;
 };
+
+// Lastprofile: dynamische Serien je ausgewählter Gruppe/Spalte
+export type LastprofileRow = {
+  ts: string;
+  // weitere Keys sind die angeforderten Gruppen/Spalten (number | null)
+  [key: string]: string | number | null;
+};
