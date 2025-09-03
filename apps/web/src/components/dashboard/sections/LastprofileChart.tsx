@@ -10,7 +10,13 @@ export default function LastprofileChart({ rows, series }: { rows: LastprofileRo
         <LineChart data={rows} syncId="time">
           <XAxis dataKey="ts" tickFormatter={(v: string) => formatTs(v)} minTickGap={24} />
           <YAxis />
-          <Tooltip />
+          <Tooltip
+            formatter={(val: any, name: string) => [
+              typeof val === 'number' && Number.isFinite(val) ? `${Math.round(val)} MW` : '–',
+              name,
+            ]}
+            labelFormatter={(l: string) => formatTs(l)}
+          />
           <Legend />
           {series.map((s, idx) => (
             <Line key={s} type="monotone" dataKey={s} dot={false} stroke={COLORS[idx % COLORS.length]} />

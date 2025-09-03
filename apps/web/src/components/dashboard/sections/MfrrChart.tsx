@@ -29,10 +29,15 @@ export default function MfrrChart({ rows, showMw = true, showPrice = true }: { r
           <XAxis dataKey="ts" tickFormatter={(v: string) => formatTs(v)} minTickGap={24} />
           {showMw && <YAxis yAxisId="mw" domain={mwDomain as any} />}
           {showPrice && <YAxis yAxisId="eur" orientation="right" domain={eurDomain as any} />}
-          <Tooltip formatter={(val: any, name: string) => {
-            if (name === 'eur') return [typeof val === 'number' ? `${val.toFixed(1)} €/MWh` : '–', 'Preis'];
-            return [typeof val === 'number' ? `${Math.round(val)} MW` : '–', 'Abruf'];
-          }} labelFormatter={(l: string) => formatTs(l)} />
+          <Tooltip
+            formatter={(val: any, _name: string, props: any) => {
+              const key = props && props.dataKey;
+              const label = props && props.name ? props.name : (key === 'eur' ? 'Preis (€/MWh)' : 'Abruf (MW)');
+              if (key === 'eur') return [typeof val === 'number' ? `${val.toFixed(1)} €/MWh` : '–', label];
+              return [typeof val === 'number' ? `${Math.round(val)} MW` : '–', label];
+            }}
+            labelFormatter={(l: string) => formatTs(l)}
+          />
           <Legend />
           {showMw && <Line type="monotone" dataKey="mw" yAxisId="mw" name="Abruf (MW)" stroke="#2563eb" dot={false} />}
           {showPrice && <Line type="monotone" dataKey="eur" yAxisId="eur" name="Preis (€/MWh)" stroke="#f59e0b" dot={false} />}
