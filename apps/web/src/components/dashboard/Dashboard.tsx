@@ -20,6 +20,8 @@ export default function Dashboard() {
   const [lpSel, setLpSel] = useState<string[]>([]);
   const [fromVal, setFromVal] = useState<string>('');  // 'YYYY-MM-DDTHH:mm'
   const [toVal, setToVal] = useState<string>('');      // 'YYYY-MM-DDTHH:mm'
+  const [showMw, setShowMw] = useState<boolean>(true);
+  const [showPrice, setShowPrice] = useState<boolean>(true);
 
   // Limit passend zur Aggregation / Zeitraum
   const limit = useMemo(() => {
@@ -72,6 +74,11 @@ export default function Dashboard() {
 
   const loading = l1 || l2;
   const error = e1 || e2;
+  const mfrrRows = useMemo(() => (joined ?? []).map(r => ({
+    ts: String((r as any).ts ?? r['ts']),
+    total_called_mw: Number((r as any).total_called_mw ?? 0),
+    avg_price_eur_mwh: (r as any).avg_price_eur_mwh ?? null,
+  })), [joined]);
 
   return (
     <div style={{ display: 'grid', gap: 16 }}>
@@ -106,6 +113,14 @@ export default function Dashboard() {
             <option value={30}>letzte 30 Tage</option>
           </select>
         </label>
+        <label>
+          mFRR MW anzeigen{' '}
+          <input type="checkbox" checked={showMw} onChange={(e) => setShowMw(e.target.checked)} />
+        </label>
+        <label>
+          mFRR Preis anzeigen{' '}
+          <input type="checkbox" checked={showPrice} onChange={(e) => setShowPrice(e.target.checked)} />
+        </label>
         <button onClick={() => {
           const base = endOverride ? new Date(endOverride) : new Date();
           const start = new Date(base.getTime() - days * 24 * 60 * 60 * 1000);
@@ -115,14 +130,14 @@ export default function Dashboard() {
       </section>
 
       {/* KPIs */}
-  <KPIs mfrr={(joined ?? []).map(r => ({ ts: String(r.ts), total_called_mw: Number((r as any).total_called_mw ?? 0), avg_price_eur_mwh: (r as any).avg_price_eur_mwh ?? null }))} />
+  <KPIs mfrr={mfrrRows} />
 
       {/* Chart */}
       <section>
         <h3>mFRR (Chart)</h3>
         <Suspense fallback={<div style={{height:240, border:'1px solid #eee', borderRadius:8}} />}>
-          {joined?.length ? (
-            <MfrrChart rows={(joined ?? []).map(r => ({ ts: String(r.ts), total_called_mw: Number((r as any).total_called_mw ?? 0), avg_price_eur_mwh: (r as any).avg_price_eur_mwh ?? null }))} />
+          {mfrrRows.length ? (
+            <MfrrChart rows={mfrrRows} showMw={showMw} showPrice={showPrice} />
           ) : <div style={{height:240}} />}
         </Suspense>
       </section>
@@ -153,7 +168,7 @@ export default function Dashboard() {
       </section>
 
       {/* Tabelle */}
-      <MfrrTable rows={(joined ?? []).map(r => ({ ts: String(r.ts), total_called_mw: Number((r as any).total_called_mw ?? 0), avg_price_eur_mwh: (r as any).avg_price_eur_mwh ?? null }))} />
+      <MfrrTable rows={mfrrRows} />
 
       {/* Survey-Beispiel */}
       <section>
