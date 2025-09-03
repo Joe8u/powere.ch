@@ -421,3 +421,41 @@ def get_survey_wide_columns() -> dict:
         return {"columns": _list_columns_for_parquet(con, SURVEY_WIDE)}
     finally:
         con.close()
+
+# --- joined mFRR × Lastprofile ---------------------------------------------
+JOINED_BASE = os.path.join(WAREHOUSE_ROOT, "curated/joined/mfrr_lastprofile")
+
+@router.get("/joined/mfrr_lastprofile")
+def get_joined_mfrr_lastprofile(
+    agg: Literal["raw", "hour", "day"] = Query("hour"),
+    year: Optional[int] = Query(None, ge=2000, le=2100),
+    month: Optional[int] = Query(None, ge=1, le=12),
+    columns: Optional[str] = Query(None, description="Kommagetrennte Spaltenliste; Standard: *"),
+    limit: int = Query(1000, ge=1, le=100000),
+    offset: int = Query(0, ge=0),
+) -> list[dict]:
+    y = str(year) if year is not None else "*"
+    m = f"{month:02d}" if month is not None else "*"
+    path = f"{JOINED_BASE}/agg={agg}/year={y}/month={m}/data.parquet"
+
+    con = _connect()
+    try:
+        cols = _list_columns_for_parquet(con, path)
+        select_list = "*"
+        if columns:
+            want = [c.strip() for c in columns.split(",") if c.strip()]
+            unknown = [c for c in want if c not in cols]
+            if unknown:
+                raise HTTPException(status_code=400, detail=f"Unknown column(s): {unknown}")
+            select_list = ", ".join(want)
+
+        sql = (
+            f"SELECT {select_list} "
+            f"FROM parquet_scan(?) "
+            f"ORDER BY 1 "
+            f"LIMIT {int(limit)} OFFSET {int(offset)}"
+        )
+        cur = con.execute(sql, [path])
+        return _rows(cur)
+    finally:
+        con.close()
