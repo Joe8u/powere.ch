@@ -17,6 +17,7 @@ WAREHOUSE_ROOT = os.environ.get("WAREHOUSE_DATA_ROOT", "/app/data")
 # Parquet-Pfade (Hive-Partitionierung year=/month=)
 LP_GLOB = os.path.join(WAREHOUSE_ROOT, "curated/lastprofile/year=*/month=*/data.parquet")
 TR_GLOB = os.path.join(WAREHOUSE_ROOT, "curated/market/regelenergie/year=*/month=*/data.parquet")
+JOINED_BASE = os.path.join(WAREHOUSE_ROOT, "curated/joined/mfrr_lastprofile")
 SURVEY_WIDE = os.path.join(WAREHOUSE_ROOT, "curated/survey/wide/data.parquet")
 
 
@@ -124,6 +125,39 @@ def _build_lp_expressions(path_pattern: str, columns: Optional[str]) -> list[tup
 
     if unknown:
         raise HTTPException(status_code=400, detail=f"Unknown column/group(s): {unknown}")
+    return out
+
+def _joined_glob(agg: str) -> str:
+    return os.path.join(JOINED_BASE, f"agg={agg}", "year=*/month=*/data.parquet")
+
+def _select_joined_exprs(path_pattern: str, columns: Optional[str]) -> list[tuple[str, str]]:
+    """
+    Für das joined-Set: wähle dynamische Lastspalten (mit Leerzeichen) sicher aus.
+    Gibt Liste (alias, expr) zurück. expr ist bereits sicher gequotet.
+    """
+    con = _connect()
+    try:
+        valid = set(_list_columns_for_parquet(con, path_pattern))
+    finally:
+        con.close()
+
+    def q_ident(col: str) -> str:
+        return '"' + col.replace('"', '""') + '"'
+
+    if not columns:
+        # default: total_mw, wenn vorhanden, sonst keine
+        return [("total_mw", q_ident("total_mw"))] if "total_mw" in valid else []
+
+    requested = [c.strip() for c in columns.split(",") if c.strip()]
+    out: list[tuple[str, str]] = []
+    unknown: list[str] = []
+    for name in requested:
+        if name in valid:
+            out.append((name, q_ident(name)))
+        else:
+            unknown.append(name)
+    if unknown:
+        raise HTTPException(status_code=400, detail=f"Unknown column(s): {unknown}")
     return out
 
 # Aliases für das Survey-Wide Parquet (freundliche Kurz-Spaltennamen)
@@ -422,40 +456,50 @@ def get_survey_wide_columns() -> dict:
     finally:
         con.close()
 
-# --- joined mFRR × Lastprofile ---------------------------------------------
-JOINED_BASE = os.path.join(WAREHOUSE_ROOT, "curated/joined/mfrr_lastprofile")
 
 @router.get("/joined/mfrr_lastprofile")
 def get_joined_mfrr_lastprofile(
     agg: Literal["raw", "hour", "day"] = Query("hour"),
-    year: Optional[int] = Query(None, ge=2000, le=2100),
-    month: Optional[int] = Query(None, ge=1, le=12),
-    columns: Optional[str] = Query(None, description="Kommagetrennte Spaltenliste; Standard: *"),
+    start: Optional[datetime] = Query(None),
+    end: Optional[datetime] = Query(None),
+    columns: Optional[str] = Query(None, description="Komma-Liste von Last-Spalten (z.B. 'total_mw,Waschmaschine')"),
     limit: int = Query(1000, ge=1, le=100000),
     offset: int = Query(0, ge=0),
 ) -> list[dict]:
-    y = str(year) if year is not None else "*"
-    m = f"{month:02d}" if month is not None else "*"
-    path = f"{JOINED_BASE}/agg={agg}/year={y}/month={m}/data.parquet"
+    path = _joined_glob(agg)
+    if not glob.glob(path):
+        return []
 
+    where: list[str] = []
+    params: list[object] = []
+    if start is not None:
+        where.append("timestamp >= CAST(? AS TIMESTAMP)")
+        params.append(start)
+    if end is not None:
+        where.append("timestamp <= CAST(? AS TIMESTAMP)")
+        params.append(end)
+    where_sql = f"WHERE {' AND '.join(where)}" if where else ""
+
+    exprs = _select_joined_exprs(path, columns)
+    # Immer mFRR Felder anhängen
+    select_dyn = ", ".join([f"{e} AS \"{alias}\"" for alias, e in exprs]) if exprs else ""
+    mfr_fields = "total_called_mw, avg_price_eur_mwh"
+    select_list = ", ".join([x for x in [select_dyn, mfr_fields] if x])
+    if not select_list:
+        select_list = mfr_fields
+
+    sql = (
+        f"SELECT timestamp AS ts, {select_list} "
+        f"FROM parquet_scan('{path}') "
+        f"{where_sql} "
+        f"ORDER BY ts "
+        f"LIMIT {int(limit)} OFFSET {int(offset)}"
+    )
     con = _connect()
     try:
-        cols = _list_columns_for_parquet(con, path)
-        select_list = "*"
-        if columns:
-            want = [c.strip() for c in columns.split(",") if c.strip()]
-            unknown = [c for c in want if c not in cols]
-            if unknown:
-                raise HTTPException(status_code=400, detail=f"Unknown column(s): {unknown}")
-            select_list = ", ".join(want)
-
-        sql = (
-            f"SELECT {select_list} "
-            f"FROM parquet_scan(?) "
-            f"ORDER BY 1 "
-            f"LIMIT {int(limit)} OFFSET {int(offset)}"
-        )
-        cur = con.execute(sql, [path])
+        cur = con.execute(sql, params)
         return _rows(cur)
     finally:
         con.close()
+
+# (entfernt: alte Variante von get_joined_mfrr_lastprofile; neue oben unterstützt start/end Filter)

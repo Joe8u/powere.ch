@@ -94,3 +94,26 @@ export async function fetchMfrrLatest(init?: RequestInit): Promise<string | null
   const r = await fetchJson<{ latest: string | null }>(`/warehouse/regelenergie/tertiary/latest_ts`, init);
   return r.latest ?? null;
 }
+
+// Joined view: mFRR + ausgewählte Last-Spalten in einem Stream
+export async function fetchJoined(
+  opts?: {
+    agg?: Agg;
+    start?: string;
+    end?: string;
+    columns?: string; // Komma-Liste (z.B. total_mw,Waschmaschine)
+    limit?: number;
+    offset?: number;
+  },
+  init?: RequestInit
+): Promise<LastprofileRow[]> {
+  const q = toQuery({
+    agg: opts?.agg ?? 'hour',
+    start: opts?.start,
+    end: opts?.end,
+    columns: opts?.columns,
+    limit: opts?.limit ?? 24,
+    offset: opts?.offset ?? 0,
+  });
+  return fetchJson<LastprofileRow[]>(`/warehouse/joined/mfrr_lastprofile${q}` , init);
+}
