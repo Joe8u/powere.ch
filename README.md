@@ -104,6 +104,33 @@ curl 'http://127.0.0.1:9000/warehouse/survey/wide?limit=5'
 # Browser: https://www.powere.ch/dashboard/
 ```
 
+## Warehouse API
+
+- Basis (lokal): `http://127.0.0.1:8000` – in Prod via NPM/Proxy `https://api.powere.ch` (Host 9000 → Container 8000).
+- Web-Frontend nutzt `PUBLIC_API_BASE` (siehe `.env.local`).
+
+Beispiele
+- Joined (mFRR × Lastprofile):
+  - `GET /warehouse/joined/mfrr_lastprofile?agg=hour&columns=total_mw&limit=3`
+- Lastprofile:
+  - `GET /warehouse/lastprofile?year=2024&month=1&limit=3`
+  - `GET /warehouse/lastprofile/columns`
+  - `GET /warehouse/lastprofile/series?agg=day&columns=total`
+- mFRR (tertiary):
+  - `GET /warehouse/regelenergie/tertiary?agg=raw&limit=3`
+  - `GET /warehouse/regelenergie/tertiary/latest_ts`
+- Survey (wide):
+  - `GET /warehouse/survey/wide?limit=3`
+
+Hinweise
+- Start/End in Zeitfiltern werden robust per `CAST(? AS TIMESTAMP)` verglichen.
+- Fehlen Parquet-Dateien unter dem jeweiligen Glob, liefern Endpunkte `[]` (kein 500).
+
+Smoke-Test
+```bash
+API_BASE=http://127.0.0.1:8000 bash scripts/smoke_warehouse.sh
+```
+
 Ports (VM)
 - Host `9000` → Container `8000` (Compose Mapping).
 - `WAREHOUSE_DATA_ROOT=/app/data` (Volume: `/srv/repos/powere.ch/data:/app/data:ro`).
