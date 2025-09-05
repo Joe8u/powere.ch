@@ -30,6 +30,8 @@ services:
       - DATA_ROOT=/app/data
       - WAREHOUSE_DATA_ROOT=/app/data
       - API_ALLOWED_HOSTS=localhost,127.0.0.1,api.powere.ch,powere.ch,www.powere.ch
+      - LLM_BASE_URL=http://192.168.0.11:11434
+      - LLM_MODEL=llama3.2:3b-instruct-q4_0
     volumes:
       - /srv/repos/powere.ch/data:/app/data:ro
     depends_on:

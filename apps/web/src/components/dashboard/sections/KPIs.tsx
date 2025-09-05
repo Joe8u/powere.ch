@@ -6,7 +6,6 @@ import { KpiCard } from '../ui/KpiCard';
 
 export function KPIs({ mfrr, lastp, lpSel, agg }: { mfrr: MfrrPoint[]; lastp?: LastprofileRow[] | null; lpSel?: string[]; agg: Agg }) {
   const price = avg(mfrr.map((x) => x.avg_price_eur_mwh ?? null));
-  const power = avg(mfrr.map((x) => x.total_called_mw ?? null));
 
   // Max. Preis (€/MWh)
   const maxPrice = (() => {
@@ -34,9 +33,7 @@ export function KPIs({ mfrr, lastp, lpSel, agg }: { mfrr: MfrrPoint[]; lastp?: L
 
   return (
     <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 12 }}>
-      <KpiCard title="mFRR Punkte (24h)" value={mfrr.length} />
-      <KpiCard title="Durchschn. Preis (24h)" value={price != null ? `${price.toFixed(1)} €/MWh` : '–'} />
-      <KpiCard title="Durchschn. Abruf (24h)" value={power != null ? `${power.toFixed(0)} MW` : '–'} />
+      <KpiCard title="Durchschn. Preis" value={price != null ? `${formatNumber(price, 1)} €/MWh` : '–'} />
       <KpiCard title="Max. Preis" value={maxPrice != null ? `${formatNumber(maxPrice, 1)} €/MWh` : '–'} />
       <KpiCard title="Verbrauch (Summe)" value={energyMWh != null ? (energyMWh < 1 ? `${formatNumber(energyMWh * 1000, 0)} kWh` : `${formatNumber(energyMWh, 1)} MWh`) : '–'} />
     </section>
