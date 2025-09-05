@@ -114,7 +114,7 @@ export default function Dashboard() {
       <div style={{ display: 'grid', gap: 16 }}>
         {error && <ErrorBanner>{error}</ErrorBanner>}
         {loading && !joined && !survey && <Loading>Initialisiere…</Loading>}
-        <KPIs mfrr={mfrrRows} />
+        <KPIs mfrr={mfrrRows} lastp={lastp ?? []} lpSel={lpSel} agg={agg} />
         <section>
           <h3>mFRR (Chart)</h3>
           <Suspense fallback={<div style={{height:240, border:'1px solid #eee', borderRadius:8}} />}>
