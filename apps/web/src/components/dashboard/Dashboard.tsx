@@ -111,20 +111,26 @@ export default function Dashboard() {
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: sidebarEl ? 'minmax(0,1fr)' : 'minmax(0,1fr) 320px', gap: 16, alignItems: 'start' }}>
+      {/** Reusable framed container style for sections */}
+      {/** Using var(--sl-color-hairline) to match theme */}
+      {/** Headings inside frames get normalized margins to avoid collapse */}
+      {/** and ensure blocks don't affect each other visually. */}
       <div style={{ display: 'grid', gap: 16 }}>
         {error && <ErrorBanner>{error}</ErrorBanner>}
         {loading && !joined && !survey && <Loading>Initialisiere…</Loading>}
-        <KPIs mfrr={mfrrRows} lastp={lastp ?? []} lpSel={lpSel} agg={agg} />
-        <section>
-          <h3>mFRR (Chart)</h3>
+        <div style={{ border: '1px solid var(--sl-color-hairline)', borderRadius: 12, padding: 12 }}>
+          <KPIs mfrr={mfrrRows} lastp={lastp ?? []} lpSel={lpSel} agg={agg} />
+        </div>
+        <div style={{ border: '1px solid var(--sl-color-hairline)', borderRadius: 12, padding: 12 }}>
+          <h3 style={{ margin: '0 0 8px 0' }}>mFRR (Chart)</h3>
           <Suspense fallback={<div style={{height:240, border:'1px solid #eee', borderRadius:8}} />}>
             {mfrrRows.length ? (
               <MfrrChart rows={mfrrRows} showMw={showMw} showPrice={showPrice} />
             ) : <div style={{height:240}} />}
           </Suspense>
-        </section>
-        <section>
-          <h3>Lastprofile</h3>
+        </div>
+        <div style={{ border: '1px solid var(--sl-color-hairline)', borderRadius: 12, padding: 12 }}>
+          <h3 style={{ margin: '0 0 8px 0' }}>Lastprofile</h3>
           <Suspense fallback={<div style={{height:260, border:'1px solid #eee', borderRadius:8}} />}>
             {lastp?.length && lpSel.length ? (
               <LastprofileChart rows={lastp} series={lpSel} />
@@ -132,7 +138,7 @@ export default function Dashboard() {
               <div style={{height:260}} />
             )}
           </Suspense>
-        </section>
+        </div>
         <MfrrTable rows={mfrrRows} />
         <section>
           <h3>Survey (Beispiel: 5 Zeilen)</h3>
