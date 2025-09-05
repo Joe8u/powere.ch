@@ -6,6 +6,7 @@ import { fetchMfrrLatest } from './api/warehouse';
 import { KPIs } from './sections/KPIs';
 import ControlPanel from './ControlPanel';
 import { MfrrTable } from './sections/MfrrTable';
+import { createPortal } from 'react-dom';
 import { SurveyList } from './sections/SurveyList';
 import { Loading } from './ui/Loading';
 import { ErrorBanner } from './ui/ErrorBanner';
@@ -89,8 +90,13 @@ export default function Dashboard() {
     avg_price_eur_mwh: (r as any).avg_price_eur_mwh ?? null,
   })), [joined]);
 
+  const [sidebarEl, setSidebarEl] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    setSidebarEl(document.getElementById('dashboard-right-panel'));
+  }, []);
+
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 320px', gap: 16, alignItems: 'start' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: sidebarEl ? 'minmax(0,1fr)' : 'minmax(0,1fr) 320px', gap: 16, alignItems: 'start' }}>
       <div style={{ display: 'grid', gap: 16 }}>
         {error && <ErrorBanner>{error}</ErrorBanner>}
         {loading && !joined && !survey && <Loading>Initialisiere…</Loading>}
@@ -119,7 +125,34 @@ export default function Dashboard() {
           <SurveyList rows={survey ?? []} />
         </section>
       </div>
-      <ControlPanel
+      {sidebarEl
+        ? createPortal(
+            <ControlPanel
+              agg={agg}
+              onAggChange={(a) => setAgg(a)}
+              fromVal={fromVal}
+              toVal={toVal}
+              onFromChange={setFromVal}
+              onToChange={setToVal}
+              days={days}
+              onDaysChange={setDays}
+              onQuickSet={() => {
+                const base = endOverride ? new Date(endOverride) : new Date();
+                const start = new Date(base.getTime() - days * 24 * 60 * 60 * 1000);
+                setToVal(toLocalInput(base));
+                setFromVal(toLocalInput(start));
+              }}
+              showMw={showMw}
+              onShowMw={setShowMw}
+              showPrice={showPrice}
+              onShowPrice={setShowPrice}
+              lpGroups={lpGroups || []}
+              lpSel={lpSel}
+              onToggleGroup={(g, checked) => setLpSel((prev) => (checked ? [...prev, g] : prev.filter((x) => x !== g)))}
+            />,
+            sidebarEl
+          )
+        : <ControlPanel
         agg={agg}
         onAggChange={(a) => setAgg(a)}
         fromVal={fromVal}
@@ -141,7 +174,7 @@ export default function Dashboard() {
         lpGroups={lpGroups || []}
         lpSel={lpSel}
         onToggleGroup={(g, checked) => setLpSel((prev) => checked ? [...prev, g] : prev.filter((x) => x !== g))}
-      />
+      />}
     </div>
   );
 }

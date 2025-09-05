@@ -1,0 +1,48 @@
+---
+// Custom RightSidebar: on /dashboard/* render a portal target for the React ControlPanel
+// For other pages, fall back to Starlight's default RightSidebar (On this page)
+import DefaultRightSidebar from '@astrojs/starlight/components/RightSidebar.astro';
+const { pathname } = Astro.url;
+const isDashboard = pathname.startsWith('/dashboard/');
+const PANEL_ID = 'dashboard-right-panel';
+const LS_KEY = 'dashboard.panelCollapsed';
+---
+
+{isDashboard ? (
+  <aside class="sl-right-sidebar" style="position: sticky; top: var(--sl-nav-height);">
+    <div class="cp-head" style="display:flex; justify-content: space-between; align-items:center; margin-bottom: 8px;">
+      <strong>Controlpanel</strong>
+      <button id="cp-toggle" type="button" aria-expanded="true" style="font-size:12px; padding:4px 8px;">Einklappen</button>
+    </div>
+    <div id={PANEL_ID}></div>
+    <script>
+      const key = '{LS_KEY}';
+      const root = document.currentScript?.closest('.sl-right-sidebar');
+      const btn = root?.querySelector('#cp-toggle');
+      const panel = root?.querySelector('#{PANEL_ID}');
+      function apply(collapsed){
+        if (!root || !panel || !btn) return;
+        root.dataset.collapsed = collapsed ? '1' : '0';
+        panel.style.display = collapsed ? 'none' : 'block';
+        btn.setAttribute('aria-expanded', String(!collapsed));
+        btn.textContent = collapsed ? 'Ausklappen' : 'Einklappen';
+        // kick charts to relayout when expanding
+        if (!collapsed) setTimeout(() => window.dispatchEvent(new Event('resize')), 50);
+      }
+      let collapsed = false;
+      try { collapsed = localStorage.getItem(key) === '1'; } catch {}
+      apply(collapsed);
+      btn?.addEventListener('click', () => {
+        collapsed = !collapsed;
+        try { localStorage.setItem(key, collapsed ? '1' : '0'); } catch {}
+        apply(collapsed);
+      });
+    </script>
+    <style>
+      .sl-right-sidebar[data-collapsed="1"] .cp-head { margin-bottom: 0; }
+    </style>
+  </aside>
+) : (
+  <DefaultRightSidebar />
+)}
+
