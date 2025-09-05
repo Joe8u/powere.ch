@@ -18,6 +18,7 @@ type Props = {
   lpGroups: string[];
   lpSel: string[];
   onToggleGroup: (g: string, checked: boolean) => void;
+  showHeader?: boolean; // optional: show the "Control Panel" heading
 };
 
 export default function ControlPanel(props: Props) {
@@ -28,10 +29,11 @@ export default function ControlPanel(props: Props) {
     showMw, onShowMw, showPrice, onShowPrice,
     lpGroups, lpSel, onToggleGroup,
   } = props;
+  const { showHeader = true } = props;
 
   return (
     <section style={{ display: 'grid', gap: 10, alignSelf: 'start', position: 'sticky', top: 0, padding: 8, border: '1px solid #eee', borderRadius: 10 }}>
-      <strong>Control Panel</strong>
+      {showHeader && <strong>Control Panel</strong>}
 
       <label>
         Aggregation{' '}

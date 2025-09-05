@@ -142,6 +142,7 @@ export default function Dashboard() {
       {sidebarEl
         ? createPortal(
             <ControlPanel
+              showHeader={false}
               agg={agg}
               onAggChange={(a) => setAgg(a)}
               fromVal={fromVal}
@@ -167,6 +168,7 @@ export default function Dashboard() {
             sidebarEl
           )
         : <ControlPanel
+        showHeader={true}
         agg={agg}
         onAggChange={(a) => setAgg(a)}
         fromVal={fromVal}
