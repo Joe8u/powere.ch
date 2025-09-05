@@ -25,9 +25,9 @@ export default defineConfig({
           ],
         },
       ],
-      // Override RightSidebar so we can host the Dashboard ControlPanel via portal
+      // Override TableOfContents (right sidebar) to host the Dashboard ControlPanel via portal
       components: {
-        RightSidebar: './src/components/starlight/RightSidebar.astro',
+        TableOfContents: './src/components/starlight/TableOfContents.astro',
       },
       }),
   ],

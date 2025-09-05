@@ -92,7 +92,21 @@ export default function Dashboard() {
 
   const [sidebarEl, setSidebarEl] = useState<HTMLElement | null>(null);
   useEffect(() => {
-    setSidebarEl(document.getElementById('dashboard-right-panel'));
+    const targetId = 'dashboard-right-panel';
+    const initial = document.getElementById(targetId);
+    if (initial) {
+      setSidebarEl(initial);
+      return;
+    }
+    const obs = new MutationObserver(() => {
+      const el = document.getElementById(targetId);
+      if (el) {
+        setSidebarEl(el);
+        obs.disconnect();
+      }
+    });
+    obs.observe(document.documentElement, { childList: true, subtree: true });
+    return () => obs.disconnect();
   }, []);
 
   return (
