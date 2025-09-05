@@ -3,9 +3,13 @@ import type { MfrrPoint, LastprofileRow, Agg } from '../types';
 import { avg } from '../utils/math';
 import { formatNumber } from '../utils/format';
 import { KpiCard } from '../ui/KpiCard';
+import React, { useRef } from 'react';
+import DebugLayout from '../dev/DebugLayout';
 
 export function KPIs({ mfrr, lastp, lpSel, agg }: { mfrr: MfrrPoint[]; lastp?: LastprofileRow[] | null; lpSel?: string[]; agg: Agg }) {
   const price = avg(mfrr.map((x) => x.avg_price_eur_mwh ?? null));
+  const gridRef = useRef<HTMLDivElement>(null);
+  const debug = typeof window !== 'undefined' && (new URLSearchParams(window.location.search).has('debug') || localStorage.getItem('debugLayout') === '1');
 
   // Max. Preis (€/MWh)
   const maxPrice = (() => {
@@ -33,10 +37,11 @@ export function KPIs({ mfrr, lastp, lpSel, agg }: { mfrr: MfrrPoint[]; lastp?: L
 
   return (
     <section>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 12, alignItems: 'stretch', alignContent: 'start', gridAutoRows: 'minmax(120px, auto)' }}>
+      <div ref={gridRef} style={{ position: 'relative', display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 12, alignItems: 'stretch', alignContent: 'start', gridAutoRows: 'minmax(120px, auto)' }}>
         <KpiCard title="Durchschn. Preis" value={price != null ? `${formatNumber(price, 1)} €/MWh` : '–'} />
         <KpiCard title="Max. Preis" value={maxPrice != null ? `${formatNumber(maxPrice, 1)} €/MWh` : '–'} />
         <KpiCard title="Verbrauch (Summe)" value={energyMWh != null ? (energyMWh < 1 ? `${formatNumber(energyMWh * 1000, 0)} kWh` : `${formatNumber(energyMWh, 1)} MWh`) : '–'} />
+        {debug && <DebugLayout container={gridRef} />}
       </div>
     </section>
   );
