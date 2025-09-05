@@ -9,39 +9,129 @@ const LS_KEY = 'dashboard.panelCollapsed';
 ---
 
 {isDashboard ? (
-  <aside class="sl-right-sidebar" style="position: sticky; top: var(--sl-nav-height);">
-    <div class="cp-head" style="display:flex; justify-content: space-between; align-items:center; margin-bottom: 8px;">
-      <strong>Controlpanel</strong>
-      <button id="cp-toggle" type="button" aria-expanded="true" style="font-size:12px; padding:4px 8px;">Einklappen</button>
-    </div>
-    <div id={PANEL_ID}></div>
+  <>
+    <aside class="sl-right-sidebar" style="position: sticky; top: var(--sl-nav-height);">
+      <div class="cp-head" style="display:flex; justify-content: space-between; align-items:center; margin-bottom: 8px;">
+        <strong>Controlpanel</strong>
+      </div>
+      <div id={PANEL_ID}></div>
+    </aside>
     <script define:vars={{ LS_KEY, PANEL_ID }}>
       const key = LS_KEY;
-      const root = document.currentScript?.closest('.sl-right-sidebar');
-      const btn = root?.querySelector('#cp-toggle');
+      const root = document.querySelector('.sl-right-sidebar');
       const panel = root?.querySelector(`#${PANEL_ID}`);
-      function apply(collapsed){
-        if (!root || !panel || !btn) return;
-        root.dataset.collapsed = collapsed ? '1' : '0';
-        panel.style.display = collapsed ? 'none' : 'block';
-        btn.setAttribute('aria-expanded', String(!collapsed));
-        btn.textContent = collapsed ? 'Ausklappen' : 'Einklappen';
-        if (!collapsed) setTimeout(() => window.dispatchEvent(new Event('resize')), 50);
+      let handle = document.getElementById('cp-handle');
+      const docEl = document.documentElement;
+      const cont = document.querySelector('.right-sidebar-container');
+      const pane = document.querySelector('.right-sidebar');
+
+      function ensureHandle() {
+        if (handle && document.body.contains(handle)) return handle;
+        const btn = document.createElement('button');
+        btn.id = 'cp-handle';
+        btn.type = 'button';
+        btn.className = 'cp-handle';
+        btn.setAttribute('aria-label', 'Sidebar umschalten');
+        btn.title = 'Sidebar umschalten';
+        btn.textContent = '‹';
+        document.body.appendChild(btn);
+        handle = btn;
+        return btn;
       }
+
+      function placeHandle(collapsed) {
+        const btn = ensureHandle();
+        if (!btn) return;
+        if (collapsed) {
+          btn.style.left = 'auto';
+          btn.style.right = '0px';
+          return;
+        }
+        const cont = document.querySelector('.right-sidebar-container');
+        const rect = cont?.getBoundingClientRect();
+        if (rect) {
+          btn.style.right = 'auto';
+          const left = Math.max(0, Math.round(rect.left - btn.offsetWidth));
+          btn.style.left = left + 'px';
+        } else {
+          // Fallback: stick to viewport edge
+          btn.style.left = 'auto';
+          btn.style.right = '0px';
+        }
+      }
+
+      function apply(collapsed) {
+        ensureHandle();
+        if (!root || !panel || !handle) return;
+        root.dataset.collapsed = collapsed ? '1' : '0';
+        // Collapse the entire right sidebar column (container + fixed pane)
+        if (cont) cont.style.width = collapsed ? '0px' : '';
+        if (pane) pane.style.display = collapsed ? 'none' : '';
+        // Mark document so we can override layout widths only for the right column
+        docEl.toggleAttribute('data-cp-collapsed', collapsed);
+        // Also drop Starlight's `data-has-toc` to stop main-pane width calc reserving space
+        if (collapsed) docEl.removeAttribute('data-has-toc');
+        else docEl.setAttribute('data-has-toc', '');
+        handle.textContent = collapsed ? '›' : '‹';
+        placeHandle(collapsed);
+        // Kick charts to relayout after any toggle
+        setTimeout(() => window.dispatchEvent(new Event('resize')), 50);
+      }
+
       let collapsed = false;
       try { collapsed = localStorage.getItem(key) === '1'; } catch {}
       apply(collapsed);
-      btn?.addEventListener('click', () => {
+
+      ensureHandle()?.addEventListener('click', () => {
         collapsed = !collapsed;
         try { localStorage.setItem(key, collapsed ? '1' : '0'); } catch {}
         apply(collapsed);
       });
+
+      // Hide the handle on small screens (where the right column isn’t shown)
+      const m = window.matchMedia('(min-width: 72rem)');
+      function updateHandleForViewport() {
+        ensureHandle();
+        if (!handle) return;
+        handle.style.display = m.matches ? '' : 'none';
+        placeHandle(collapsed);
+      }
+      updateHandleForViewport();
+      m.addEventListener?.('change', updateHandleForViewport);
+
+      window.addEventListener('resize', () => placeHandle(collapsed));
     </script>
     <style>
       .sl-right-sidebar[data-collapsed="1"] .cp-head { margin-bottom: 0; }
+      /* Floating vertical tab handle */
+      .cp-handle {
+        position: fixed;
+        top: calc(var(--sl-nav-height) + 1rem);
+        z-index: 50;
+        padding: 8px 10px;
+        border-radius: 8px 0 0 8px;
+        border: 1px solid var(--sl-color-hairline);
+        background: var(--sl-color-bg);
+        color: var(--sl-color-text);
+        box-shadow: 0 1px 4px rgb(0 0 0 / 10%);
+        cursor: pointer;
+      }
+      /* Collapse only the right column and give space back to main content */
+      @media (min-width: 72rem) {
+        :global(:root[data-cp-collapsed] .right-sidebar-container) { width: 0 !important; }
+        :global(:root[data-cp-collapsed] .right-sidebar) { display: none !important; }
+        :global(:root[data-cp-collapsed][data-has-sidebar][data-has-toc] .main-pane) { width: 100% !important; --sl-content-margin-inline: 0; }
+        /* Header may subtract TOC width; set it to zero when collapsed */
+        :global(:root[data-cp-collapsed]) {
+          --__toc-width: 0px;
+          /* Expand global content width variable so inner containers aren't capped */
+          --sl-content-width: 100%;
+          --sl-content-margin-inline: 0;
+        }
+        :global(:root[data-cp-collapsed] .sl-container) { width: 100% !important; margin-inline: 0 !important; }
+      }
     </style>
-  </aside>
+  </>
 ) : (
   <DefaultTableOfContents />
 )}
-

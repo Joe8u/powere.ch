@@ -28,6 +28,7 @@ export default defineConfig({
       // Override TableOfContents (right sidebar) to host the Dashboard ControlPanel via portal
       components: {
         TableOfContents: './src/components/starlight/TableOfContents.astro',
+        ContentPanel: './src/components/starlight/ContentPanel.astro',
       },
       }),
   ],
