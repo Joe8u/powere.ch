@@ -4,6 +4,7 @@ import { useLastprofileGroups } from './hooks/useLastprofile';
 import { useJoined } from './hooks/useJoined';
 import { fetchMfrrLatest } from './api/warehouse';
 import { KPIs } from './sections/KPIs';
+import ControlPanel from './ControlPanel';
 import { MfrrTable } from './sections/MfrrTable';
 import { SurveyList } from './sections/SurveyList';
 import { Loading } from './ui/Loading';
@@ -89,100 +90,58 @@ export default function Dashboard() {
   })), [joined]);
 
   return (
-    <div style={{ display: 'grid', gap: 16 }}>
-      {/* Status */}
-      {error && <ErrorBanner>{error}</ErrorBanner>}
-      {loading && !joined && !survey && <Loading>Initialisiere…</Loading>}
-      {/* Filter */}
-      <section style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-        <strong>Filter:</strong>
-        <label>
-          Aggregation:{' '}
-          <select value={agg} onChange={(e) => setAgg(e.target.value as Agg)}>
-            <option value="raw">15-Min</option>
-            <option value="hour">Stunde</option>
-            <option value="day">Tag</option>
-          </select>
-        </label>
-        <label>
-          Von:{' '}
-          <input type="datetime-local" value={fromVal} onChange={(e) => setFromVal(e.target.value)} />
-        </label>
-        <label>
-          Bis:{' '}
-          <input type="datetime-local" value={toVal} onChange={(e) => setToVal(e.target.value)} />
-        </label>
-        <label>
-          Schnellauswahl:{' '}
-          <select value={days} onChange={(e) => setDays(Number(e.target.value))}>
-            <option value={1}>letzte 24h</option>
-            <option value={3}>letzte 3 Tage</option>
-            <option value={7}>letzte 7 Tage</option>
-            <option value={30}>letzte 30 Tage</option>
-          </select>
-        </label>
-        <label>
-          mFRR MW anzeigen{' '}
-          <input type="checkbox" checked={showMw} onChange={(e) => setShowMw(e.target.checked)} />
-        </label>
-        <label>
-          mFRR Preis anzeigen{' '}
-          <input type="checkbox" checked={showPrice} onChange={(e) => setShowPrice(e.target.checked)} />
-        </label>
-        <button onClick={() => {
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 320px', gap: 16, alignItems: 'start' }}>
+      <div style={{ display: 'grid', gap: 16 }}>
+        {error && <ErrorBanner>{error}</ErrorBanner>}
+        {loading && !joined && !survey && <Loading>Initialisiere…</Loading>}
+        <KPIs mfrr={mfrrRows} />
+        <section>
+          <h3>mFRR (Chart)</h3>
+          <Suspense fallback={<div style={{height:240, border:'1px solid #eee', borderRadius:8}} />}>
+            {mfrrRows.length ? (
+              <MfrrChart rows={mfrrRows} showMw={showMw} showPrice={showPrice} />
+            ) : <div style={{height:240}} />}
+          </Suspense>
+        </section>
+        <section>
+          <h3>Lastprofile</h3>
+          <Suspense fallback={<div style={{height:260, border:'1px solid #eee', borderRadius:8}} />}>
+            {lastp?.length && lpSel.length ? (
+              <LastprofileChart rows={lastp} series={lpSel} />
+            ) : (
+              <div style={{height:260}} />
+            )}
+          </Suspense>
+        </section>
+        <MfrrTable rows={mfrrRows} />
+        <section>
+          <h3>Survey (Beispiel: 5 Zeilen)</h3>
+          <SurveyList rows={survey ?? []} />
+        </section>
+      </div>
+      <ControlPanel
+        agg={agg}
+        onAggChange={(a) => setAgg(a)}
+        fromVal={fromVal}
+        toVal={toVal}
+        onFromChange={setFromVal}
+        onToChange={setToVal}
+        days={days}
+        onDaysChange={setDays}
+        onQuickSet={() => {
           const base = endOverride ? new Date(endOverride) : new Date();
           const start = new Date(base.getTime() - days * 24 * 60 * 60 * 1000);
           setToVal(toLocalInput(base));
           setFromVal(toLocalInput(start));
-        }}>Setzen</button>
-      </section>
-
-      {/* KPIs */}
-  <KPIs mfrr={mfrrRows} />
-
-      {/* Chart */}
-      <section>
-        <h3>mFRR (Chart)</h3>
-        <Suspense fallback={<div style={{height:240, border:'1px solid #eee', borderRadius:8}} />}>
-          {mfrrRows.length ? (
-            <MfrrChart rows={mfrrRows} showMw={showMw} showPrice={showPrice} />
-          ) : <div style={{height:240}} />}
-        </Suspense>
-      </section>
-
-      {/* Lastprofile Auswahl + Chart */}
-      <section>
-        <h3>Lastprofile</h3>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 8 }}>
-          {(lpGroups || []).map((g) => (
-            <label key={g} style={{ fontSize: 13 }}>
-              <input
-                type="checkbox"
-                checked={lpSel.includes(g)}
-                onChange={(e) => {
-                  setLpSel((prev) => e.target.checked ? [...prev, g] : prev.filter((x) => x !== g));
-                }}
-              />{' '}{g}
-            </label>
-          ))}
-        </div>
-        <Suspense fallback={<div style={{height:260, border:'1px solid #eee', borderRadius:8}} />}>
-          {lastp?.length && lpSel.length ? (
-            <LastprofileChart rows={lastp} series={lpSel} />
-          ) : (
-            <div style={{height:260}} />
-          )}
-        </Suspense>
-      </section>
-
-      {/* Tabelle */}
-      <MfrrTable rows={mfrrRows} />
-
-      {/* Survey-Beispiel */}
-      <section>
-        <h3>Survey (Beispiel: 5 Zeilen)</h3>
-        <SurveyList rows={survey ?? []} /> {/* <-- erwartet rows */}
-      </section>
+        }}
+        showMw={showMw}
+        onShowMw={setShowMw}
+        showPrice={showPrice}
+        onShowPrice={setShowPrice}
+        lpGroups={lpGroups || []}
+        lpSel={lpSel}
+        onToggleGroup={(g, checked) => setLpSel((prev) => checked ? [...prev, g] : prev.filter((x) => x !== g))}
+      />
     </div>
   );
 }
