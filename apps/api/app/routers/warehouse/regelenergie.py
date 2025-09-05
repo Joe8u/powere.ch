@@ -27,17 +27,15 @@ def get_tertiary_regulation(
     with connect() as con:
         if agg == "raw":
             sql = ("SELECT timestamp, total_called_mw, avg_price_eur_mwh "
-                   f"FROM parquet_scan('{TR_GLOB}') {wsql} ORDER BY timestamp "
-                   f"LIMIT {int(limit)} OFFSET {int(offset)}")
-            return rows(con.execute(sql, params))
+                   f"FROM parquet_scan(?) {wsql} ORDER BY timestamp LIMIT ? OFFSET ?")
+            return rows(con.execute(sql, [TR_GLOB, *params, int(limit), int(offset)]))
         ts_expr = "date_trunc('hour', timestamp)" if agg == "hour" else "date_trunc('day', timestamp)"
-        sql = ("WITH base AS (SELECT * FROM parquet_scan('{TR_GLOB}') "
+        sql = ("WITH base AS (SELECT * FROM parquet_scan(?) "
                f"{wsql}) SELECT {ts_expr} AS ts, "
                "SUM(total_called_mw) AS total_called_mw, "
                "CASE WHEN SUM(total_called_mw)=0 THEN NULL ELSE SUM(avg_price_eur_mwh * total_called_mw) / NULLIF(SUM(total_called_mw),0) END AS avg_price_eur_mwh "
-               "FROM base GROUP BY 1 ORDER BY 1 "
-               f"LIMIT {int(limit)} OFFSET {int(offset)}")
-        return rows(con.execute(sql, params))
+               "FROM base GROUP BY 1 ORDER BY 1 LIMIT ? OFFSET ?")
+        return rows(con.execute(sql, [TR_GLOB, *params, int(limit), int(offset)]))
 
 
 @router.get("/regelenergie/tertiary/latest_ts")
@@ -49,4 +47,3 @@ def get_tertiary_latest_ts() -> dict:
         r = rows(cur)
         latest = r[0]["latest"].isoformat() if r and r[0].get("latest") else None
         return {"latest": latest}
-

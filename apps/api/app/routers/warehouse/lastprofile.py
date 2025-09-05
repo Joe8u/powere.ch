@@ -25,10 +25,10 @@ def get_lastprofile(
     if month is not None:
         where.append("month = ?"); params.append(month)
     wsql = f"WHERE {' AND '.join(where)}" if where else ""
-    sql = (f"SELECT {select_list} FROM parquet_scan('{LP_GLOB}') {wsql} "
-           f"ORDER BY timestamp LIMIT {int(limit)} OFFSET {int(offset)}")
+    sql = (f"SELECT {select_list} FROM parquet_scan(?) {wsql} "
+           "ORDER BY timestamp LIMIT ? OFFSET ?")
     with connect() as con:
-        return rows(con.execute(sql, params))
+        return rows(con.execute(sql, [LP_GLOB, *params, int(limit), int(offset)]))
 
 
 @router.get("/lastprofile/columns")
@@ -63,12 +63,12 @@ def get_lastprofile_series(
     with connect() as con:
         if agg == "raw":
             sel = ", ".join([f"{e} AS \"{alias}\"" for alias, e in exprs])
-            sql = (f"SELECT timestamp AS ts, {sel} FROM parquet_scan('{LP_GLOB}') {wsql} "
-                   f"ORDER BY ts LIMIT {int(limit)} OFFSET {int(offset)}")
-            return rows(con.execute(sql, params))
+            sql = (f"WITH base AS (SELECT * FROM parquet_scan(?) {wsql}) "
+                   f"SELECT timestamp AS ts, {sel} FROM base ORDER BY ts LIMIT ? OFFSET ?")
+            return rows(con.execute(sql, [LP_GLOB, *params, int(limit), int(offset)]))
         ts_expr = "date_trunc('hour', timestamp)" if agg == "hour" else "date_trunc('day', timestamp)"
         aggs = ", ".join([f"AVG({e}) AS \"{alias}\"" for alias, e in exprs])
-        sql = ("WITH base AS (SELECT * FROM parquet_scan('{LP_GLOB}') "
+        sql = ("WITH base AS (SELECT * FROM parquet_scan(?) "
                f"{wsql}) SELECT {ts_expr} AS ts, {aggs} FROM base GROUP BY 1 ORDER BY 1 "
-               f"LIMIT {int(limit)} OFFSET {int(offset)}")
-        return rows(con.execute(sql, params))
+               "LIMIT ? OFFSET ?")
+        return rows(con.execute(sql, [LP_GLOB, *params, int(limit), int(offset)]))

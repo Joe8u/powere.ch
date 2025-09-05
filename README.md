@@ -125,6 +125,7 @@ Beispiele
 Hinweise
 - Start/End in Zeitfiltern werden robust per `CAST(? AS TIMESTAMP)` verglichen.
 - Fehlen Parquet-Dateien unter dem jeweiligen Glob, liefern Endpunkte `[]` (kein 500).
+- Zeitfeld: Aggregationen liefern `ts` (Alias), Rohlisten `timestamp`.
 
 Smoke-Test
 ```bash

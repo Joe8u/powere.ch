@@ -72,6 +72,14 @@ export default function Dashboard() {
   const { groups: lpGroups } = useLastprofileGroups();
   const lastp = joined; // joined liefert die gewünschten LP-Serien
 
+  // Standard-Auswahl: beim ersten Laden "Geschirrspüler" (falls vorhanden), sonst erste Gruppe
+  useEffect(() => {
+    if (!lpGroups || lpGroups.length === 0) return;
+    if (lpSel.length > 0) return; // Nutzer hat schon gewählt
+    const preferred = lpGroups.find((g) => g.toLowerCase() === 'geschirrspüler') || lpGroups[0];
+    if (preferred) setLpSel([preferred]);
+  }, [lpGroups]);
+
   const loading = l1 || l2;
   const error = e1 || e2;
   const mfrrRows = useMemo(() => (joined ?? []).map(r => ({
