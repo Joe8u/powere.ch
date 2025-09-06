@@ -8,7 +8,8 @@
     "build": "astro build",
     "preview": "astro preview",
     "astro": "astro",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "kpi:inspect": "node scripts/kpi_inspect.mjs"
   },
   "dependencies": {
     "@astrojs/mdx": "^4.3.3",
@@ -26,6 +27,7 @@
   },
   "devDependencies": {
     "@types/use-sync-external-store": "^1.5.0",
-    "js-yaml": "^4.1.0"
+    "js-yaml": "^4.1.0",
+    "puppeteer": "^22.15.0"
   }
 }
