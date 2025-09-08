@@ -40,13 +40,20 @@ async function main() {
     const cRect = container.getBoundingClientRect();
     const cStyle = getComputedStyle(container);
 
+    const rootRem = parseFloat(getComputedStyle(document.documentElement).fontSize || '16') || 16;
     const metrics = values.map((el, i) => {
       const r = el.getBoundingClientRect();
+      const top = r.top - cRect.top;
+      const bottom = cRect.bottom - r.bottom;
+      const height = r.height;
       return {
         index: i + 1,
-        top: r.top - cRect.top,
-        bottom: cRect.bottom - r.bottom,
-        height: r.height,
+        top,
+        bottom,
+        height,
+        topRem: top / rootRem,
+        bottomRem: bottom / rootRem,
+        heightRem: height / rootRem,
         text: el.textContent?.trim() || '',
       };
     });
@@ -54,6 +61,17 @@ async function main() {
     const titles = cards.map((card) => (
       card.querySelector('.kpi-title')?.textContent?.trim() || ''
     ));
+
+    const cardMetrics = cards.map((el, i) => {
+      const r = el.getBoundingClientRect();
+      return {
+        '#': i + 1,
+        top: r.top - cRect.top,
+        left: r.left - cRect.left,
+        width: r.width,
+        height: r.height,
+      };
+    });
 
     const style = {
       display: cStyle.display,
@@ -78,6 +96,7 @@ async function main() {
       },
       titles,
       metrics,
+      cardMetrics,
       summary: { maxTop, maxBottom, topSpread, bottomSpread },
     };
   });
@@ -89,7 +108,7 @@ async function main() {
   }
 
   // Pretty print report
-  const { container, titles, metrics, summary } = result;
+  const { container, titles, metrics, cardMetrics, summary } = result;
   console.log('KPI Layout Report for', url);
   console.log('\nContainer');
   console.table([{
@@ -105,7 +124,10 @@ async function main() {
   console.table(titles.map((t, i) => ({ '#': i + 1, title: t })));
 
   console.log('\nValue metrics (relative to container)');
-  console.table(metrics.map((m) => ({ '#': m.index, top: formatPx(m.top), bottom: formatPx(m.bottom), height: formatPx(m.height), text: m.text })));
+  console.table(metrics.map((m) => ({ '#': m.index, top: formatPx(m.top), bottom: formatPx(m.bottom), height: formatPx(m.height), 'top (rem)': m.topRem.toFixed(3), 'bottom (rem)': m.bottomRem.toFixed(3), 'height (rem)': m.heightRem.toFixed(3), text: m.text })));
+
+  console.log('\nCard boxes (relative to container)');
+  console.table(cardMetrics.map((m) => ({ '#': m['#'], top: formatPx(m.top), left: formatPx(m.left), width: formatPx(m.width), height: formatPx(m.height) })));
 
   console.log('\nSummary');
   console.table([{ 'max top': formatPx(summary.maxTop), 'max bottom': formatPx(summary.maxBottom), 'top spread': formatPx(summary.topSpread), 'bottom spread': formatPx(summary.bottomSpread) }]);
@@ -122,4 +144,3 @@ main().catch((err) => {
   console.error(err);
   process.exit(1);
 });
-

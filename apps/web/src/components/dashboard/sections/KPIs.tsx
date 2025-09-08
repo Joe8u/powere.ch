@@ -37,12 +37,26 @@ export function KPIs({ mfrr, lastp, lpSel, agg }: { mfrr: MfrrPoint[]; lastp?: L
 
   return (
     <section>
-      <div ref={gridRef} style={{ position: 'relative', display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 12, alignItems: 'stretch', alignContent: 'start', gridAutoRows: 'minmax(120px, auto)' }}>
-        <KpiCard title="Durchschn. Preis" value={price != null ? `${formatNumber(price, 1)} €/MWh` : '–'} />
-        <KpiCard title="Max. Preis" value={maxPrice != null ? `${formatNumber(maxPrice, 1)} €/MWh` : '–'} />
-        <KpiCard title="Verbrauch (Summe)" value={energyMWh != null ? (energyMWh < 1 ? `${formatNumber(energyMWh * 1000, 0)} kWh` : `${formatNumber(energyMWh, 1)} MWh`) : '–'} />
-        {debug && <DebugLayout container={gridRef.current} />}
-      </div>
+      <div
+        ref={gridRef}
+        className="kpi-grid"
+        style={{
+          position: 'relative',
+          display: 'grid',
+          gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+          gap: '0.75rem',
+          alignItems: 'stretch',
+          alignContent: 'start',
+          gridAutoRows: 'var(--kpi-card-h)',
+          ['--kpi-card-h' as any]: 'clamp(9rem, 22vmin, 11rem)',
+        }}
+      >
+          <KpiCard title="Durchschn. Preis" value={price != null ? `${formatNumber(price, 1)} €/MWh` : '–'} />
+          <KpiCard title="Max. Preis" value={maxPrice != null ? `${formatNumber(maxPrice, 1)} €/MWh` : '–'} />
+          <KpiCard title="Verbrauch (Summe)" value={energyMWh != null ? (energyMWh < 1 ? `${formatNumber(energyMWh * 1000, 0)} kWh` : `${formatNumber(energyMWh, 1)} MWh`) : '–'} />
+          {debug && <DebugLayout container={gridRef.current} />}
+        </div>
+      <style>{`.kpi-grid{}`}</style>
     </section>
   );
 }

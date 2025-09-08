@@ -4,23 +4,39 @@ export function KpiCard({ title, value }: { title: string; value: React.ReactNod
     <div
       className="kpi-card"
       style={{
-        padding: 16,
+        // relative sizing
+        padding: '1rem',
         border: '1px solid var(--sl-color-hairline)',
         boxSizing: 'border-box',
-        borderRadius: 12,
-        minHeight: 120,
-        height: '100%',
-        display: 'grid',
-        gridTemplateRows: '18px 1fr auto',
+        borderRadius: '0.75rem',
+        // PRE state: only minimum height; card may not fill grid row completely
+        minHeight: 'var(--kpi-card-h)',
+        position: 'relative',
+        display: 'block',
+        overflow: 'hidden',
       }}
     >
       <div
         className="kpi-title"
-        style={{ fontSize: 12, color: '#666', lineHeight: '18px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+        style={{ fontSize: '0.75rem', color: '#666', lineHeight: '1.125rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
       >
         {title}
       </div>
-      <div className="kpi-value" style={{ fontSize: 22, fontWeight: 700, lineHeight: 1.25, alignSelf: 'end' }}>{value}</div>
+      <div
+        className="kpi-value"
+        style={{
+          fontSize: 'clamp(1.25rem, 2.2vw, 1.5rem)',
+          fontWeight: 700,
+          lineHeight: 1.25,
+          // PRE state: allow wrapping (may change vertical space)
+          position: 'absolute',
+          left: '1rem',
+          right: '1rem',
+          bottom: '1rem',
+        }}
+      >
+        {value}
+      </div>
     </div>
   );
 }

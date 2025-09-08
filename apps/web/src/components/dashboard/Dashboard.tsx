@@ -119,6 +119,7 @@ export default function Dashboard() {
         {error && <ErrorBanner>{error}</ErrorBanner>}
         {loading && !joined && !survey && <Loading>Initialisiere…</Loading>}
         <div style={{ border: '1px solid var(--sl-color-hairline)', borderRadius: 12, padding: 12 }}>
+          <h3 style={{ margin: '0 0 8px 0' }}>KPIs</h3>
           <KPIs mfrr={mfrrRows} lastp={lastp ?? []} lpSel={lpSel} agg={agg} />
         </div>
         <div style={{ border: '1px solid var(--sl-color-hairline)', borderRadius: 12, padding: 12 }}>
