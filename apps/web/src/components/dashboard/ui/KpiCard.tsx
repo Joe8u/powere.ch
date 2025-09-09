@@ -3,6 +3,7 @@ export function KpiCard({ title, value }: { title: string; value: React.ReactNod
   return (
     <div
       className="kpi-card"
+      data-kpi-card=""
       style={{
         // relative sizing
         padding: '1rem',
@@ -24,6 +25,7 @@ export function KpiCard({ title, value }: { title: string; value: React.ReactNod
       </div>
       <div
         className="kpi-value"
+        data-kpi-value=""
         style={{
           fontSize: 'clamp(1.25rem, 2.2vw, 1.5rem)',
           fontWeight: 700,
