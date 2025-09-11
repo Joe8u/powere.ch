@@ -5,15 +5,18 @@ export function KpiCard({ title, value }: { title: string; value: React.ReactNod
       className="kpi-card"
       data-kpi-card=""
       style={{
-        // relative sizing
+        // Variant A: fixed height to match grid row and stable layout via flex
         padding: '1rem',
+        margin: 0,
         border: '1px solid var(--sl-color-hairline)',
         boxSizing: 'border-box',
         borderRadius: '0.75rem',
-        // PRE state: only minimum height; card may not fill grid row completely
-        minHeight: 'var(--kpi-card-h)',
-        position: 'relative',
-        display: 'block',
+        // Force card height to match grid track height variable for uniform boxes
+        height: 'var(--kpi-card-h)',
+        alignSelf: 'stretch',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
         overflow: 'hidden',
       }}
     >
@@ -30,11 +33,9 @@ export function KpiCard({ title, value }: { title: string; value: React.ReactNod
           fontSize: 'clamp(1.25rem, 2.2vw, 1.5rem)',
           fontWeight: 700,
           lineHeight: 1.25,
-          // PRE state: allow wrapping (may change vertical space)
-          position: 'absolute',
-          left: '1rem',
-          right: '1rem',
-          bottom: '1rem',
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
         }}
       >
         {value}

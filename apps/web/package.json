@@ -9,7 +9,9 @@
     "preview": "astro preview",
     "astro": "astro",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "kpi:inspect": "node scripts/kpi_inspect.mjs"
+    "kpi:inspect": "node scripts/kpi_check.mjs --mode full",
+    "kpi:measure": "node scripts/kpi_check.mjs --mode quick",
+    "kpi:check": "node scripts/kpi_check.mjs"
   },
   "dependencies": {
     "@astrojs/mdx": "^4.3.3",

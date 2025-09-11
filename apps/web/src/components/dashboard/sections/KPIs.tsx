@@ -45,6 +45,7 @@ export function KPIs({ mfrr, lastp, lpSel, agg }: { mfrr: MfrrPoint[]; lastp?: L
           display: 'grid',
           gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
           gap: '0.75rem',
+          // Stretch items to fill the grid row height uniformly
           alignItems: 'stretch',
           alignContent: 'start',
           gridAutoRows: 'var(--kpi-card-h)',
