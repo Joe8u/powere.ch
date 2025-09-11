@@ -9,6 +9,8 @@
   ],
   "compilerOptions": {
     "jsx": "react-jsx",
-    "jsxImportSource": "react"
+    "jsxImportSource": "react",
+    // Restrict global type packages to avoid duplicate implicit libs like "node 2" / "trusted-types 2"
+    "types": ["vite/client", "node", "trusted-types"]
   }
 }
